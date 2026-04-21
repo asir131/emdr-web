@@ -12,12 +12,9 @@ export default function ThunderLightningPage() {
     },
     {
       title: "Thunder and Lightning Copy",
-      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800288/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800278495.m4a",
+      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800399/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800376028.mov",
     },
   ];
-
-
-
 
   return (
     <div className="min-h-screen p-4 ">

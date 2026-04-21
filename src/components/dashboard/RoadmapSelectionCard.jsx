@@ -127,7 +127,7 @@ export default function CreateJourney() {
         throw new Error(result?.message || "Failed to create journey.");
       }
 
-      router.push("/dashboard/EMDRCompanion/session");
+      router.push("/dashboard/EMDRCompanion");
     } catch (error) {
       console.error("Error creating journey:", error);
       setSaveError(error?.message || "Unable to save your journey right now.");

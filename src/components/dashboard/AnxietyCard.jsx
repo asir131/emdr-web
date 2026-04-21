@@ -283,13 +283,13 @@ export default function AnxietyCard() {
 
             <button
               type="button"
-              onClick={() =>
-                router.push(
-                  `/dashboard/sessions?journeyId=${encodeURIComponent(
-                    journey.id
-                  )}&title=${encodeURIComponent(journey.title)}`
-                )
-              }
+              // onClick={() =>
+              //   router.push(
+              //     `/dashboard/sessions?journeyId=${encodeURIComponent(
+              //       journey.id
+              //     )}&title=${encodeURIComponent(journey.title)}`
+              //   )
+              // }
               className="w-full cursor-pointer rounded-xl bg-[#4A7C59] py-3 text-sm font-medium uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-[#4A7C59]"
             >
               Continue Session

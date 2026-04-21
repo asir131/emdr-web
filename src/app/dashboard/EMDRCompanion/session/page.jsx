@@ -1,9 +1,37 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
 
 const FIXED_SESSION_VIDEO_ID = "69e7c604fd68f032aa7a2c61";
+
+const patchMediaProgress = async ({
+  baseUrl,
+  token,
+  mediaId,
+  watchedSeconds,
+  totalSeconds,
+}) => {
+  const response = await fetch(`${baseUrl}/api/progress/media/${mediaId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      watchedSeconds,
+      totalSeconds,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.message || "Failed to save media progress.");
+  }
+
+  return result;
+};
 
 const formatTime = (timeInSeconds) => {
   if (!Number.isFinite(timeInSeconds) || timeInSeconds < 0) {
@@ -30,6 +58,10 @@ export default function EMDRSession() {
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
   const [videoError, setVideoError] = useState("");
   const videoRef = useRef(null);
+  const lastSyncedProgressRef = useRef({
+    watchedSeconds: -1,
+    totalSeconds: -1,
+  });
   const journeyId = searchParams.get("journeyId") || "";
   const journeyTitle = searchParams.get("title") || "";
   const sessionId = searchParams.get("sessionId") || "";
@@ -165,7 +197,58 @@ export default function EMDRSession() {
     setVideoEnded(true);
     setIsPlaying(false);
     setCurrentTime(duration);
+    syncVideoProgress(duration, duration);
   };
+
+  const syncVideoProgress = useCallback(
+    async (watchedSecondsOverride, totalSecondsOverride) => {
+      const watchedSeconds = Math.max(
+        0,
+        Math.floor(
+          watchedSecondsOverride ??
+            videoRef.current?.currentTime ??
+            currentTime
+        )
+      );
+      const resolvedTotalSeconds = Math.max(
+        0,
+        Math.floor(
+          totalSecondsOverride ??
+            videoRef.current?.duration ??
+            duration
+        )
+      );
+
+      if (!baseUrl || !token || !videoSrc) {
+        return;
+      }
+
+      if (
+        watchedSeconds === lastSyncedProgressRef.current.watchedSeconds &&
+        resolvedTotalSeconds === lastSyncedProgressRef.current.totalSeconds
+      ) {
+        return;
+      }
+
+      try {
+        await patchMediaProgress({
+          baseUrl,
+          token,
+          mediaId: FIXED_SESSION_VIDEO_ID,
+          watchedSeconds,
+          totalSeconds: resolvedTotalSeconds,
+        });
+
+        lastSyncedProgressRef.current = {
+          watchedSeconds,
+          totalSeconds: resolvedTotalSeconds,
+        };
+      } catch (error) {
+        console.error("Error saving session video progress:", error);
+      }
+    },
+    [baseUrl, currentTime, duration, token, videoSrc]
+  );
 
   const remainingTime = Math.max(duration - currentTime, 0);
 
@@ -192,7 +275,10 @@ export default function EMDRSession() {
                 setDuration(event.currentTarget.duration || 0)
               }
               onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
+              onPause={() => {
+                setIsPlaying(false);
+                syncVideoProgress();
+              }}
               onTimeUpdate={(event) =>
                 setCurrentTime(event.currentTarget.currentTime)
               }

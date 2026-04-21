@@ -97,10 +97,6 @@ export default function AssessmentsPage() {
               <button className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200">
                 View Assessments
               </button>
-
-
-
-              
             </div>
           </div>
         </div>
