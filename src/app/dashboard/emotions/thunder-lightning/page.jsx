@@ -8,11 +8,11 @@ export default function ThunderLightningPage() {
   const videos = [
     {
       title: "Thunder and Lightning",
-      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776797191/my-emdr/media/media_69c70af6f992b944bccd41a9_1776797154731.mov",
+      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800399/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800376028.mov",
     },
     {
       title: "Thunder and Lightning Copy",
-      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776797191/my-emdr/media/media_69c70af6f992b944bccd41a9_1776797154731.mov",
+      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800288/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800278495.m4a",
     },
   ];
 

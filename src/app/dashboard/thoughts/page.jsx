@@ -114,12 +114,12 @@ const mindfulnessVideos = [
   {
     id: "brain",
     title: "Brain",
-    src: "/video/brain.mp4",
+    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801087/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801065133.mp4",
   },
   {
     id: "brain-down",
     title: "Brain Down",
-    src: "/video/brain_down.mp4",
+    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801133/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801117511.mp4",
   },
 ];
 
