@@ -218,7 +218,7 @@ export default function CBTFormulation() {
       if (currentNodeRef.current) {
         currentNodeRef.current.scrollIntoView({
           behavior: "smooth",
-          block: "center",
+          block: "start",
         });
       }
     }, 100);
@@ -280,80 +280,51 @@ export default function CBTFormulation() {
           </h1>
         </div>
         <div className="px-8 py-16 max-w-5xl mx-auto">
-          {timelineNodes.map((node, index) => {
-            const isCompleted = answers[node.id]?.completed;
-            const isCurrent = index === currentNodeIndex;
-            const isFuture = index > currentNodeIndex;
-            if (isFuture && !allTimelineComplete) return null;
+          <AnimatePresence mode="wait">
+            {timelineNodes.map((node, index) => {
+              const isCurrent = index === currentNodeIndex;
 
-            return (
-              <div key={node.id} className="relative mb-12">
-                <div className="text-center mb-10 mt-12">
-                  <h2
-                    className={`font-serif text-[#0F1912] text-xl transition-all duration-500 ${isCompleted
-                        ? "text-[#0F1912] text-xl "
-                        : isCurrent
-                          ? "text-[#0F1912] text-xl"
-                          : "text-[#0F1912] text-xl"
-                      }`}
-                  >
-                    {node.section}
-                  </h2>
-                </div>
-                <div
-                  ref={isCurrent ? currentNodeRef : null}
-                  className="flex justify-center"
+              if (!isCurrent || allTimelineComplete) return null;
+
+              return (
+                <motion.div
+                  key={node.id}
+                  initial={{ opacity: 0, y: 100 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -100 }}
+                  transition={{ duration: 0.6, ease: "easeInOut" }}
+                  className="relative mb-6"
                 >
-                  <button
-                    onClick={() => handleOpenModal(node.id)}
-                    className="relative hover:scale-105 transition-all duration-300"
-                  >
-                    <div
-                      className={`rounded-full border-4 py-1 px-10  border-[#4A7C59] text-center shadow-2xl transition-all duration-500 ${isCompleted
-                          ? "bg-[#f6f2f4] text-[#0F1912] text-xl px-20 py-8"
-                          : isCurrent
-                            ? "bg-white backdrop-blur-sm px-40 py-20 text-[#0F1912] text-xl"
-                            : "bg-white backdrop-blur-sm px-24 py-12 text-[#0F1912] text-xl"
-                        }`}
+                  <div className="text-center mb-4 mt-6">
+                    <h2 className="font-serif text-[#0F1912] text-xl">
+                      {node.section}
+                    </h2>
+                  </div>
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => handleOpenModal(node.id)}
+                      className="relative hover:scale-105 transition-all duration-300"
                     >
-                      <h3
-                        className={`font-serif text-stone-900 transition-all duration-500 ${isCompleted
-                            ? "text-xl"
-                            : isCurrent
-                              ? "text-4xl mb-4"
-                              : "text-3xl mb-3"
-                          }`}
-                      >
-                        {node.title}
-                      </h3>
-                      {!isCompleted && (
-                        <p
-                          className={`text-stone-600 italic transition-all duration-500 ${isCurrent ? "text-lg" : "text-base"
-                            }`}
-                        >
+                      <div className="rounded-3xl border-4 py-1 px-10 border-[#4A7C59] text-center shadow-2xl transition-all duration-500 bg-white backdrop-blur-sm px-16 py-8 text-[#0F1912] text-xl">
+                        <h3 className="font-serif text-stone-900 text-3xl mb-2">
+                          {node.title}
+                        </h3>
+                        <p className="text-stone-600 italic text-lg">
                           {node.subtitle}
                         </p>
-                      )}
-                    </div>
-                  </button>
-                </div>
-                {index < timelineNodes.length - 1 && (
-                  <div className="flex justify-center mt-10 mb-4 ">
-                    <div
-                      className={`bg-[#4A7C59] transition-all duration-500 ${isCompleted ? "w-0.5 h-24" : "w-0.5 h-32"
-                        }`}
-                    ></div>
+                      </div>
+                    </button>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
           {showReactSection && (
             <div ref={reactSectionRef} className="mt-16 pb-16 min-h-screen">
               <div className="flex justify-center mb-8">
                 <div className="w-0.5 h-20 bg-[#4A7C59]"></div>
               </div>
-              <div className="text-center mt-30 mb-52">
+              <div className="text-center mt-50 mb-22">
                 <h2 className="text-3xl font-serif text-stone-900">
                   How I React
                 </h2>
@@ -434,8 +405,8 @@ export default function CBTFormulation() {
                 {/* Thoughts: Top Center */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[90%] md:w-auto flex justify-center z-20 ">
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                     className="w-full max-w-[280px]"
                   >
@@ -464,9 +435,9 @@ export default function CBTFormulation() {
                   <AnimatePresence>
                     {answers.thoughts?.completed && (
                       <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
+                        initial={{ opacity: 0, x: -20, y: 20 }}
+                        animate={{ opacity: 1, x: 0, y: 0 }}
+                        exit={{ opacity: 0, x: -20, y: 20 }}
                         transition={{ duration: 0.6, delay: 0.5 }}
                         className="w-full max-w-[280px]"
                       >
@@ -476,8 +447,8 @@ export default function CBTFormulation() {
                         >
                           <div
                             className={`rounded-3xl py-10 px-3 border-4 border-[#4A7C59] flex flex-col items-center justify-center text-center shadow-xl transition-all duration-500 aspect-[3/2] w-full ${answers.feelings?.completed
-                                ? "bg-white"
-                                : "bg-white"
+                              ? "bg-white"
+                              : "bg-white"
                               }`}
                           >
                             <h3 className="font-serif text-stone-900 text-2xl md:text-3xl mb-1 md:mb-2">
@@ -498,9 +469,9 @@ export default function CBTFormulation() {
                   <AnimatePresence>
                     {answers.feelings?.completed && (
                       <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
+                        initial={{ opacity: 0, x: 20, y: 20 }}
+                        animate={{ opacity: 1, x: 0, y: 0 }}
+                        exit={{ opacity: 0, x: 20, y: 20 }}
                         transition={{ duration: 0.6, delay: 0.5 }}
                         className="w-full max-w-[280px]"
                       >
@@ -548,8 +519,8 @@ export default function CBTFormulation() {
                     >
                       <div
                         className={`rounded-3xl border-4  border-[#4A7C59] p-5 text-center shadow-2xl transition-all duration-500 ${answers.consequences?.completed
-                            ? "bg-[#f4f4f4]"
-                            : "bg-white"
+                          ? "bg-[#f4f4f4]"
+                          : "bg-white"
                           }`}
                       >
                         <h3 className="font-serif text-4xl text-[#0F1912] mb-4">
@@ -581,8 +552,8 @@ export default function CBTFormulation() {
                     >
                       <div
                         className={`rounded-3xl border-4 border-[#4A7C59] p-5 text-center shadow-2xl transition-all duration-500 ${answers.superpowers?.completed
-                            ? "bg-[#f5f5f2]"
-                            : "bg-white/90 backdrop-blur-md"
+                          ? "bg-[#f5f5f2]"
+                          : "bg-white/90 backdrop-blur-md"
                           }`}
                       >
                         <h3 className="font-serif text-4xl text-[#0F1912] mb-4">
