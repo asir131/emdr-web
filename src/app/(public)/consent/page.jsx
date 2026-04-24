@@ -11,6 +11,7 @@ export default function ConsentPage() {
     const router = useRouter();
     const { user, token, isAuthenticated } = useStoredAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
 
     const [formData, setFormData] = useState({
         fullName: user?.name || "",
@@ -68,32 +69,30 @@ export default function ConsentPage() {
             headers: { Authorization: `Bearer ${token}` }
         };
 
-        // Validate that all mandatory consents are checked
-        if (!formData.understandTreatment) {
-            alert("Please check the 'I understand the nature of EMDR therapy' box.");
+        const newErrors = {};
+        if (!formData.fullName?.trim()) newErrors.fullName = "Full Name is required";
+        if (!formData.dob) newErrors.dob = "Date of Birth is required";
+        if (!formData.sex) newErrors.sex = "Please select your sex";
+        if (!formData.email?.trim()) newErrors.email = "Email address is required";
+        if (!formData.understandTreatment) newErrors.understandTreatment = "This consent is required to proceed";
+        if (!formData.dataProcessing) newErrors.dataProcessing = "This consent is required to proceed";
+        if (!formData.voluntaryConsent) newErrors.voluntaryConsent = "This consent is required to proceed";
+        if (!formData.emergencyProtocol) newErrors.emergencyProtocol = "This consent is required to proceed";
+        if (!formData.signature?.trim()) newErrors.signature = "Please sign the form by typing your name";
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
             setIsSubmitting(false);
+            // Scroll to the first error
+            const firstErrorField = Object.keys(newErrors)[0];
+            const element = document.getElementById(firstErrorField);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return;
         }
-        if (!formData.dataProcessing) {
-            alert("Please check the 'I understand how my data will be processed' box.");
-            setIsSubmitting(false);
-            return;
-        }
-        if (!formData.voluntaryConsent) {
-            alert("Please check the 'I am participating voluntarily' box.");
-            setIsSubmitting(false);
-            return;
-        }
-        if (!formData.emergencyProtocol) {
-            alert("Please check the 'I understand the emergency procedures' box.");
-            setIsSubmitting(false);
-            return;
-        }
-        if (!formData.signature?.trim()) {
-            alert("Please type your name in the Electronic Signature field.");
-            setIsSubmitting(false);
-            return;
-        }
+
+        setErrors({});
 
         try {
             // 1. Profile POST
@@ -254,7 +253,16 @@ export default function ConsentPage() {
         
         .required::after {
           content: ' *';
-          color: #17b5a7;
+          color: #dc2626;
+        }
+        .error-text {
+          color: #dc2626;
+          font-size: 12px;
+          margin-top: 5px;
+          font-weight: 500;
+        }
+        .input-error {
+          border-bottom-color: #dc2626 !important;
         }
         
         input[type="text"],
@@ -526,8 +534,10 @@ export default function ConsentPage() {
                                 name="fullName"
                                 value={formData.fullName}
                                 onChange={handleInputChange}
+                                className={errors.fullName ? "input-error" : ""}
                                 autoFocus
                             />
+                            {errors.fullName && <div className="error-text">{errors.fullName}</div>}
                         </div>
                         <div className="form-group">
                             <label htmlFor="dob" className="required">Date of Birth</label>
@@ -537,7 +547,9 @@ export default function ConsentPage() {
                                 name="dob"
                                 value={formData.dob}
                                 onChange={handleInputChange}
+                                className={errors.dob ? "input-error" : ""}
                             />
+                            {errors.dob && <div className="error-text">{errors.dob}</div>}
                         </div>
                         <div className="form-group">
                             <label htmlFor="sex" className="required">Sex</label>
@@ -546,6 +558,7 @@ export default function ConsentPage() {
                                 name="sex"
                                 value={formData.sex}
                                 onChange={handleInputChange}
+                                className={errors.sex ? "input-error" : ""}
                             >
                                 <option value="">Please select</option>
                                 <option value="male">Male</option>
@@ -553,6 +566,7 @@ export default function ConsentPage() {
                                 <option value="other">Other</option>
                                 <option value="prefer-not-to-say">Prefer not to say</option>
                             </select>
+                            {errors.sex && <div className="error-text">{errors.sex}</div>}
                         </div>
                         <div className="form-group">
                             <label htmlFor="email" className="required">Email Address</label>
@@ -562,7 +576,9 @@ export default function ConsentPage() {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
+                                className={errors.email ? "input-error" : ""}
                             />
+                            {errors.email && <div className="error-text">{errors.email}</div>}
                         </div>
                     </div>
 
@@ -730,6 +746,7 @@ export default function ConsentPage() {
                                     onChange={handleCheckboxChange}
                                 />
                                 <label htmlFor={decl.id}>{decl.label}</label>
+                                {errors[decl.id] && <div className="error-text" style={{ marginLeft: "25px" }}>{errors[decl.id]}</div>}
                             </div>
                         ))}
                     </div>
@@ -746,8 +763,10 @@ export default function ConsentPage() {
                                     name="signature"
                                     value={formData.signature}
                                     onChange={handleInputChange}
+                                    className={errors.signature ? "input-error" : ""}
                                     placeholder="Enter your full name as it appears above"
                                 />
+                                {errors.signature && <div className="error-text">{errors.signature}</div>}
                             </div>
                             <p style={{ fontSize: "13px", color: "#666", marginTop: "15px" }}>
                                 By typing your name above, you confirm that you have read, understood, and agree to the terms outlined in this consent form. This electronic signature is legally binding.

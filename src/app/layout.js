@@ -31,12 +31,16 @@
 
 import "./globals.css";
 import ReduxProvider from "@/redux/ReduxProvider";
+import { Toaster } from "react-hot-toast";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
-        <ReduxProvider>{children}</ReduxProvider>
+        <ReduxProvider>
+          {children}
+          <Toaster position="top-center" reverseOrder={false} />
+        </ReduxProvider>
       </body>
     </html>
   );

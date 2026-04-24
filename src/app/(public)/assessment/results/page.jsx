@@ -59,19 +59,20 @@ export default function ResultsPage() {
         );
     }
 
-    const { scores, recommendation, requiresProfessionalSupport } = results || {
-        scores: {
-            depression: { score: 0, outOf: 27, severity: "minimal" },
-            anxiety: { score: 0, outOf: 21, severity: "minimal" },
-            dissociation: { score: 0, unit: "%" }
-        },
-        recommendation: "Evaluation complete.",
-        requiresProfessionalSupport: false
+    const depressionScore = results?.scores?.depression?.score || 0;
+    const anxietyScore = results?.scores?.anxiety?.score || 0;
+    const dissociationScore = results?.scores?.dissociation?.score || 0;
+    
+    const recommendation = results?.recommendation || "Evaluation complete.";
+    const requiresProfessionalSupport = results?.requiresProfessionalSupport || false;
+    const scores = results?.scores || {
+        depression: { score: 0, outOf: 27, severity: "minimal" },
+        anxiety: { score: 0, outOf: 21, severity: "minimal" },
+        dissociation: { score: 0, unit: "%" }
     };
 
     // Rule: Either Total score (Depression + Anxiety) >= 30 OR Dissociation score >= 30 to subscribe
-    const totalScore = scores.depression.score + scores.anxiety.score;
-    const dissociationScore = scores.dissociation.score;
+    const totalScore = depressionScore + anxietyScore;
     const canSubscribe = (totalScore >= 30 || dissociationScore >= 30);
 
     return (

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 import { X, Loader2, ShieldCheck, CreditCard } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -64,6 +65,7 @@ const CheckoutForm = ({ onClose, planName, price, planId, clientSecret, token })
         console.log("✅ Payment successful!");
         try {
           await confirmPayment(result.paymentIntent.id, token);
+          toast.success("Payment Successful!");
           onClose();
         } catch (backendError) {
           console.error("Backend Error:", backendError);
