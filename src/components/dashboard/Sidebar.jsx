@@ -29,13 +29,13 @@ export default function Sidebar() {
       <div className="absolute inset-0 bg-[url('/sidebar-bg.png')] opacity-20 pointer-events-none mix-blend-overlay"></div>
       <div className="pt-2 px-6 pb-6 relative z-10 flex flex-col h-full">
         <div className="flex flex-col items-center ">
-          <div className="w-32 h-32 flex items-center justify-center mb-4">
+          <Link href="/" className="w-32 h-32 flex items-center justify-center mb-4 cursor-pointer hover:opacity-80 transition-opacity">
             <img
               src="/homeImage/loginimg.png"
               alt="UK Inkind"
               className="w-full h-full object-contain"
             />
-          </div>
+          </Link>
         </div>
         <nav className="space-y-2 flex-1">
           {navItems.map((item) => {
