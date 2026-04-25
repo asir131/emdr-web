@@ -36,8 +36,8 @@ const PricingSection = ({ compact = false, activePlanName }) => {
               buttonText: isActive
                 ? "Active Plan"
                 : plan.name === "Free"
-                ? "Apply for Access"
-                : "Get Started",
+                  ? "Apply for Access"
+                  : "Get Started",
               hasSpots: plan.isCommunityAccess,
               spots: 12, // Hardcoded as in original, could be from API if available
               isActive: isActive,
@@ -74,12 +74,12 @@ const PricingSection = ({ compact = false, activePlanName }) => {
           viewport={{ once: true }}
           transition={{ delay: index * 0.1 }}
           className={`relative bg-white rounded-[20px] p-6 flex flex-col transition-all duration-300 w-full ${plan.isActive || (!activePlanName && plan.recommended)
-              ? "border-[2.5px] border-[#4A7C59] scale-105 z-10 shadow-xl"
-              : "border border-gray-200 shadow-sm"
+            ? "border-[2.5px] border-[#4A7C59] scale-105 z-10 shadow-xl"
+            : "border border-gray-200 shadow-sm"
             }`}
         >
           {plan.isActive ? (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#4A7C59] rounded-2xl px-4 py-0.5 z-20">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#4A7C59] rounded-2xl px-4 py-0.5 z-20">
               <span className="text-[14px] text-white font-semibold tracking-widest">
                 Current Plan
               </span>
@@ -150,13 +150,12 @@ const PricingSection = ({ compact = false, activePlanName }) => {
                 // Force redirection to login page with a return path to consent
                 router.push("/authentication/login?redirect=/consent");
               }}
-              className={`w-full py-2.5 rounded-lg text-[16px] font-medium border-[1.5px] transition-all ${
-                plan.isActive
-                  ? "bg-[#4A7C59] border-[#4A7C59] text-white opacity-80 cursor-not-allowed"
-                  : plan.recommended && !activePlanName
+              className={`w-full py-2.5 rounded-lg text-[16px] font-medium border-[1.5px] transition-all ${plan.isActive
+                ? "bg-[#4A7C59] border-[#4A7C59] text-white opacity-80 cursor-not-allowed"
+                : plan.recommended && !activePlanName
                   ? "bg-white border-[#4A7C59] text-[#4A7C59] hover:bg-[#456b4c] hover:text-white"
                   : "bg-white border-gray-300 text-gray-700 hover:border-[#4A7C59] hover:text-[#4A7C59]"
-              }`}
+                }`}
             >
               {plan.buttonText}
             </button>

@@ -87,14 +87,14 @@ export default function DesPage() {
                             <p className='text-[18px]'>This questionnaire consists of experiences that you may have in your daily life. We are interested in how often you have these experiences. It is important, however, that your answers show how often these experiences happen to you when you are NOT under the influence of alcohol or drugs.<br></br>  Please indicate what percentage of the time this happens to you (0% = never, 100% = always).  <br></br>    Reference: Carlson, E. B., & Putnam, F. W. (1993). An update on the Dissociative Experiences Scale. Dissociation: Progress in the Dissociative Disorders, 6(1), 16-27. </p>
                         </div>
                     </div>
-                    <div className="bg-[#1e293b] text-white px-4 py-2 rounded-lg text-center min-w-[80px]">
+                    {/* <div className="bg-[#1e293b] text-white px-4 py-2 rounded-lg text-center min-w-[80px]">
                         <div className="text-[10px] uppercase font-bold opacity-70">Average Score</div>
                         <div className="text-2xl font-serif">
                             {desQuestions.length > 0
                                 ? ((Object.values(desAnswers).reduce((acc, val) => acc + val, 0) / desQuestions.length) / 2).toFixed(1)
                                 : 0}%
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 <div className="space-y-6">

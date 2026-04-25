@@ -54,12 +54,12 @@ export default function Gad7Page() {
                         <h3 className="text-2xl font-serif text-[#1e293b] mb-2">Generalized Anxiety Disorder (GAD-7)</h3>
                         <p className="text-[#64748b]">Over the last 2 weeks, how often have you been bothered by the following problems?</p>
                     </div>
-                    <div className="bg-[#1e293b] text-white px-4 py-2 rounded-lg text-center min-w-[80px]">
+                    {/* <div className="bg-[#1e293b] text-white px-4 py-2 rounded-lg text-center min-w-[80px]">
                         <div className="text-[10px] uppercase font-bold opacity-70">Current Score</div>
                         <div className="text-2xl font-serif">
                             {Object.values(gad7Answers).reduce((acc, val) => acc + val, 0)}
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 <div className="space-y-6">
