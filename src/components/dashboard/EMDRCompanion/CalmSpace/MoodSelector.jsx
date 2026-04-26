@@ -17,12 +17,19 @@ const MoodSelector = ({
     onClose();
   };
   const filteredSounds = sounds.filter(
-    (sound) =>
-      sound?.mediaType === "audio" &&
-      (sound?.categoryName?.trim()?.toLowerCase() ===
-        VISUAL_SOUNDS_CATEGORY_NAME ||
-        sound?.categorySlug?.trim()?.toLowerCase() ===
-          VISUAL_SOUNDS_CATEGORY_NAME)
+    (sound) => {
+      const normalizedCategoryName =
+        sound?.categoryName?.trim()?.toLowerCase() || "";
+      const normalizedCategorySlug =
+        sound?.categorySlug?.trim()?.toLowerCase() || "";
+      const normalizedMediaType = sound?.mediaType?.trim()?.toLowerCase() || "";
+
+      const isVisualSoundCategory =
+        normalizedCategoryName === VISUAL_SOUNDS_CATEGORY_NAME ||
+        normalizedCategorySlug === VISUAL_SOUNDS_CATEGORY_NAME;
+
+      return isVisualSoundCategory && normalizedMediaType === "audio";
+    }
   );
 
   if (!isOpen) {
@@ -40,8 +47,8 @@ const MoodSelector = ({
               Select Mood
             </h2>
             <p className="mt-1 text-sm text-white/80 font-sans">
-              Visual-sounds category-r sob audio ekhane dekhacche. Jekono ekta
-              select korte parben.
+              Visual-sounds category-r audio item-gula ekhane dekhacche.
+              Jekono ekta select korte parben.
             </p>
           </div>
           <button

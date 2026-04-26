@@ -1,7 +1,7 @@
 import React from "react";
 import AudioPlayer from "./AudioPlayer";
 
-const PreviewPane = ({ description, backgroundUrl }) => {
+const PreviewPane = ({ description, backgroundUrl, audioTitle, audioSrc }) => {
   return (
     <div
       className="bg-white/40 backdrop-blur-md rounded-[40px] p-10 shadow-2xl h-full flex flex-col relative overflow-hidden border border-white/40"
@@ -21,8 +21,8 @@ const PreviewPane = ({ description, backgroundUrl }) => {
 
         <div className="mb-8">
           <AudioPlayer
-            title="Calm_place.mp3"
-            durationInSeconds={200}
+            title={audioTitle || "Select a sound"}
+            audioSrc={audioSrc}
             isReplaceable={false}
           />
         </div>

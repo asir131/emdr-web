@@ -6,8 +6,24 @@ const VisualSelector = ({
   isLoading = false,
   error = "",
   selectedVisualId,
+  uploadedVisual,
   onSelectVisual,
+  onUploadVisual,
 }) => {
+  const handleUploadChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (onUploadVisual) {
+      onUploadVisual(file);
+    }
+
+    event.target.value = "";
+  };
+
   return (
     <div className="bg-white/40 backdrop-blur-md rounded-3xl p-3 shadow-xl border border-white/20">
       <h2 className="text-xl font-serif mb-3 text-[#0F1912] tracking-tight">
@@ -27,6 +43,14 @@ const VisualSelector = ({
         </div>
       ) : (
         <div className="flex flex-wrap gap-5 mb-5">
+          {uploadedVisual ? (
+            <VisualCard
+              key={uploadedVisual.id}
+              {...uploadedVisual}
+              isActive={selectedVisualId === uploadedVisual.id}
+              onClick={() => onSelectVisual(uploadedVisual)}
+            />
+          ) : null}
           {visuals.map((visual) => (
             <VisualCard
               key={visual.id}
@@ -55,10 +79,16 @@ const VisualSelector = ({
           <p className="text-stone-500 text-sm font-sans tracking-wide">
             PNG or GIF (max. 5MB)
           </p>
+          {uploadedVisual?.fileName ? (
+            <p className="mt-2 text-xs font-sans font-medium text-[#4A7C59]">
+              Selected upload: {uploadedVisual.fileName}
+            </p>
+          ) : null}
           <input
             type="file"
             className="absolute inset-0 opacity-0 cursor-pointer"
             accept="image/*"
+            onChange={handleUploadChange}
           />
         </div>
       </div>

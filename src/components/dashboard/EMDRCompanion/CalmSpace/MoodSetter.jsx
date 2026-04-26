@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useEffectEvent, useState } from "react";
 import { useStoredAuth } from "@/redux/authStorage";
 import AudioPlayer from "./AudioPlayer";
 import MoodSelector from "./MoodSelector";
@@ -59,12 +59,20 @@ const getMoodSounds = async (token) => {
 
   return allMedia
     .filter(
-      (item) =>
-        item?.mediaType === "audio" &&
-        item?.status === "active" &&
-        item?.url &&
-        item?.categoryId?.categoryName?.trim()?.toLowerCase() ===
-          MOOD_SOUND_CATEGORY_NAME
+      (item) => {
+        const normalizedCategoryName =
+          item?.categoryId?.categoryName?.trim()?.toLowerCase() || "";
+        const normalizedMediaType = item?.mediaType?.trim()?.toLowerCase() || "";
+        const isVisualSoundCategory =
+          normalizedCategoryName === MOOD_SOUND_CATEGORY_NAME;
+
+        return (
+          item?.status === "active" &&
+          item?.url &&
+          isVisualSoundCategory &&
+          normalizedMediaType === "audio"
+        );
+      }
     )
     .map((item, index) => ({
       id: item?._id,
@@ -76,13 +84,32 @@ const getMoodSounds = async (token) => {
     }));
 };
 
-const MoodSetter = () => {
+const MoodSetter = ({
+  selectedSound,
+  onSelectSound,
+  onUploadSound,
+}) => {
   const { token } = useStoredAuth();
   const [showSelector, setShowSelector] = useState(false);
   const [sounds, setSounds] = useState([]);
-  const [selectedSound, setSelectedSound] = useState(null);
   const [isLoadingSounds, setIsLoadingSounds] = useState(true);
   const [soundError, setSoundError] = useState("");
+  const syncSelectedSound = useEffectEvent((items) => {
+    if (!items.length || selectedSound?.source === "upload") {
+      return;
+    }
+
+    if (!selectedSound?.id) {
+      onSelectSound(items[0]);
+      return;
+    }
+
+    const matchedSound = items.find((item) => item.id === selectedSound.id);
+
+    if (!matchedSound) {
+      onSelectSound(items[0]);
+    }
+  });
 
   useEffect(() => {
     const fetchSounds = async () => {
@@ -92,24 +119,11 @@ const MoodSetter = () => {
 
         const items = await getMoodSounds(token);
         setSounds(items);
-        setSelectedSound((currentSelection) => {
-          if (!items.length) {
-            return null;
-          }
-
-          if (!currentSelection?.id) {
-            return items[0];
-          }
-
-          return (
-            items.find((item) => item.id === currentSelection.id) || items[0]
-          );
-        });
+        syncSelectedSound(items);
       } catch (error) {
         console.error("Error fetching calm-space sounds:", error);
         setSoundError(error?.message || "Unable to load sounds right now.");
         setSounds([]);
-        setSelectedSound(null);
       } finally {
         setIsLoadingSounds(false);
       }
@@ -124,6 +138,20 @@ const MoodSetter = () => {
 
   const handleCloseSelector = () => {
     setShowSelector(false);
+  };
+
+  const handleUploadChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (onUploadSound) {
+      onUploadSound(file);
+    }
+
+    event.target.value = "";
   };
 
   return (
@@ -141,18 +169,31 @@ const MoodSetter = () => {
             {soundError}
           </div>
         ) : selectedSound ? (
-          <AudioPlayer
-            key={selectedSound.id}
-            title={selectedSound.title}
-            audioSrc={selectedSound.url}
-            isReplaceable={true}
-            onReplace={handleOpenSelector}
-          />
+          <div className="space-y-3">
+            <AudioPlayer
+              key={selectedSound.id}
+              title={selectedSound.title}
+              audioSrc={selectedSound.url}
+              isReplaceable={true}
+              onReplace={handleOpenSelector}
+            />
+          </div>
         ) : (
           <div className="rounded-2xl bg-white/70 px-4 py-8 text-center text-stone-700">
             No Visual-sounds audio found.
           </div>
         )}
+        {!isLoadingSounds ? (
+          <label className="mt-3 flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-[#1E3224]/30 bg-white/60 px-4 py-3 text-sm font-medium text-[#0F1912] transition-colors hover:bg-white/80">
+            Upload custom sound
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={handleUploadChange}
+              className="hidden"
+            />
+          </label>
+        ) : null}
       </div>
       <MoodSelector
         isOpen={showSelector}
@@ -160,7 +201,7 @@ const MoodSetter = () => {
         isLoading={isLoadingSounds}
         error={soundError}
         selectedSoundId={selectedSound?.id}
-        onSelectSound={setSelectedSound}
+        onSelectSound={onSelectSound}
         onClose={handleCloseSelector}
       />
     </>
