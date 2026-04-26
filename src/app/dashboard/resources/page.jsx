@@ -43,9 +43,12 @@ export default function MyResources() {
             <p className="text-[#7A7A7A] text-sm leading-relaxed mb-4">
               Access your saved safe place audio visualization.
             </p>
-            <button className="text-[#4A7C59] text-sm font-medium hover:underline">
+            <Link
+              href="/dashboard/resources/story"
+              className="text-[#4A7C59] text-sm font-medium hover:underline"
+            >
               Listen Now
-            </button>
+            </Link>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-start justify-between mb-4">

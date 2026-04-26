@@ -1,174 +1,95 @@
 "use client";
 import React from "react";
+import Image from "next/image";
+
+const calmPlaceItems = [
+  {
+    id: "thanking-mind-1",
+    title: "Thanking the Mind",
+    type: "Video",
+    tone: "play",
+  },
+  {
+    id: "thanking-mind-2",
+    title: "Thanking the Mind",
+    type: "Video",
+    tone: "play",
+  },
+  {
+    id: "leaves-stream",
+    title: "Leaves on a Stream",
+    type: "Audio",
+    tone: "music",
+  },
+];
+
+const ItemIcon = ({ tone }) => {
+  if (tone === "music") {
+    return (
+      <svg
+        className="h-5 w-5 text-[#355A43]"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className="h-5 w-5 text-[#355A43]"
+      fill="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+};
 
 export default function StoryPage() {
   return (
-    <div className="min-h-screen relative px-6 py-12 ">
-      <div className="absolute inset-0 bg-white/30 backdrop-blur-sm rounded-2xl"></div>
-      <div className="relative ">
-        <h1 className="text-4xl font-serif text-[#292524] mb-8 text-center">
-          My Story
-        </h1>
-        <div className="bg-[#E3E6F0] backdrop-blur-md rounded-3xl shadow-lg p-8 mb-6">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1502139214982-d0ad755818d8?w=100&h=100&fit=crop"
-                alt="Tree icon"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <h2 className="text-2xl font-serif text-[#0F1912]">Thoughts</h2>
-              <p className="text-[#7A7A7A] text-sm">
-                Creating distance from our thoughts helps us see them clearly.
-              </p>
-            </div>
+    <div className="min-h-screen rounded-2xl bg-[#ede7dc]/50  p-1">
+      <section
+       
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#d9d3c2]/35 via-transparent to-[#e7e0d2]/20" />
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl text-[#2f3027] md:text-3xl">
+            Calm Place Exercise
+          </h1>
+
+          <div className="mt-4 space-y-3">
+            {calmPlaceItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="flex w-full items-center justify-between rounded-2xl border border-[#bfc8bb] bg-white/90 px-5 py-4 text-left shadow-[0_8px_18px_rgba(53,90,67,0.12)] transition-all hover:bg-white"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#9fbaa4]">
+                    <ItemIcon tone={item.tone} />
+                  </div>
+                  <span className="truncate font-serif text-lg text-[#2d2a26]">
+                    {item.title}
+                  </span>
+                </div>
+                <span className="ml-4 shrink-0 text-sm text-[#3e3a36]">
+                  {item.type}
+                </span>
+              </button>
+            ))}
           </div>
-          <div className="space-y-3">
-            <div className="bg-[#4A7C59]/10 rounded-2xl p-4 flex items-center justify-between hover:bg-teal-50 transition-colors cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600/20 rounded-xl flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-teal-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-stone-900 font-medium">
-                  ACT Thoughts Exercise
-                </span>
-              </div>
-              <span className="text-sm text-stone-600 font-medium">Text</span>
-            </div>
-            <div className="bg-[#4A7C59]/10 rounded-2xl p-4 flex items-center justify-between hover:bg-teal-50 transition-colors cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600/20 rounded-xl flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-teal-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-stone-900 font-medium">
-                  Thanking the Mind
-                </span>
-              </div>
-              <span className="text-sm text-stone-600 font-medium">Video</span>
-            </div>
-            <div className="bg-[#4A7C59]/10 rounded-2xl p-4 flex items-center justify-between hover:bg-teal-50 transition-colors cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600/20 rounded-xl flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-teal-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                    />
-                  </svg>
-                </div>
-                <span className="text-stone-900 font-medium">
-                  Leaves on a Stream
-                </span>
-              </div>
-              <span className="text-sm text-stone-600 font-medium">Audio</span>
-            </div>
-          </div>
+
+        
         </div>
-        <div className="bg-[#E3E6F0] backdrop-blur-md rounded-3xl shadow-lg p-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0">
-              <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop"
-                alt="Person icon"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <h2 className="text-2xl font-serif text-[#0F1912]">Emotions</h2>
-              <p className="text-[#7A7A7A] text-sm">
-                Learning to feel and manage emotions safely.
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div className="bg-[#4A7C59]/10 rounded-2xl p-4 flex items-center justify-between hover:bg-teal-50 transition-colors cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600/20 rounded-xl flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-teal-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-stone-900 font-medium">
-                  ACT Thoughts Exercise
-                </span>
-              </div>
-              <span className="text-sm text-stone-600 font-medium">Text</span>
-            </div>
-            <div className="bg-[#4A7C59]/10 rounded-2xl p-4 flex items-center justify-between hover:bg-teal-50 transition-colors cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600/20 rounded-xl flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-teal-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                    />
-                  </svg>
-                </div>
-                <span className="text-stone-900 font-medium">
-                  Leaves on a Stream
-                </span>
-              </div>
-              <span className="text-sm text-stone-600 font-medium">Audio</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
