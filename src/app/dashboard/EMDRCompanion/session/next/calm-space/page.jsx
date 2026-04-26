@@ -1,40 +1,102 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useStoredAuth } from "@/redux/authStorage";
 import VisualSelector from "@/components/dashboard/EMDRCompanion/CalmSpace/VisualSelector";
 import PlaceDescription from "@/components/dashboard/EMDRCompanion/CalmSpace/PlaceDescription";
 import MoodSetter from "@/components/dashboard/EMDRCompanion/CalmSpace/MoodSetter";
 import PreviewPane from "@/components/dashboard/EMDRCompanion/CalmSpace/PreviewPane";
+
+const VISUAL_CATEGORY_NAME = "visual-image";
+
+const getCalmSpaceVisuals = async (token) => {
+  const rawBaseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+  const baseUrl = rawBaseUrl.endsWith("/")
+    ? rawBaseUrl.slice(0, -1)
+    : rawBaseUrl;
+
+  if (!baseUrl) {
+    throw new Error("Image service is not configured.");
+  }
+
+  if (!token) {
+    throw new Error("Please sign in again to load calm-space visuals.");
+  }
+
+  const response = await fetch(`${baseUrl}/api/media?page=1&limit=20`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.message || "Failed to fetch calm-space visuals.");
+  }
+
+  return (result?.data?.media || [])
+    .filter(
+      (item) =>
+        item?.mediaType === "image" &&
+        item?.status === "active" &&
+        item?.url &&
+        item?.categoryId?.categoryName?.trim()?.toLowerCase() ===
+          VISUAL_CATEGORY_NAME,
+    )
+    .map((item, index) => ({
+      id: item?._id,
+      image: item?.url,
+      alt: item?.originalName || item?.name || `Visual ${index + 1}`,
+    }));
+};
+
 const MeditationSpaceApp = () => {
   const router = useRouter();
-  const [selectedVisual, setSelectedVisual] = useState({
-    id: 2,
-    image:
-      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&fit=crop",
-    alt: "Mountains",
-  });
-  const [description, setDescription] = useState();
-  const visuals = [
-    {
-      id: 1,
-      image:
-        "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=300&h=200&fit=crop",
-      alt: "Group",
-    },
-    {
-      id: 2,
-      image:
-        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=200&fit=crop",
-      alt: "Mountains",
-    },
-    {
-      id: 3,
-      image:
-        "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=300&h=200&fit=crop",
-      alt: "Galaxy",
-      label: "Behaviours",
-    },
-  ];
+  const { token } = useStoredAuth();
+  const [selectedVisual, setSelectedVisual] = useState(null);
+  const [description, setDescription] = useState("");
+  const [visuals, setVisuals] = useState([]);
+  const [isLoadingVisuals, setIsLoadingVisuals] = useState(true);
+  const [visualError, setVisualError] = useState("");
+
+  useEffect(() => {
+    const fetchVisuals = async () => {
+      try {
+        setIsLoadingVisuals(true);
+        setVisualError("");
+
+        const items = await getCalmSpaceVisuals(token);
+        setVisuals(items);
+        setSelectedVisual((currentSelection) => {
+          if (!items.length) {
+            return null;
+          }
+
+          if (!currentSelection?.id) {
+            return items[0];
+          }
+
+          return (
+            items.find((item) => item.id === currentSelection.id) || items[0]
+          );
+        });
+      } catch (error) {
+        console.error("Error fetching calm-space visuals:", error);
+        setVisualError(
+          error?.message || "Unable to load calm-space visuals right now.",
+        );
+        setVisuals([]);
+        setSelectedVisual(null);
+      } finally {
+        setIsLoadingVisuals(false);
+      }
+    };
+
+    fetchVisuals();
+  }, [token]);
+
   return (
     <div className="min-h-screen relative p-4 md:p-8 font-serif overflow-x-hidden rounded-2xl">
       <div className="absolute inset-0 bg-white/20 backdrop-blur-xl pointer-events-none rounded-2xl" />
@@ -52,6 +114,8 @@ const MeditationSpaceApp = () => {
           <div className="space-y-3 h-full">
             <VisualSelector
               visuals={visuals}
+              isLoading={isLoadingVisuals}
+              error={visualError}
               selectedVisualId={selectedVisual?.id}
               onSelectVisual={setSelectedVisual}
             />

@@ -1,28 +1,70 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Play, Pause } from "lucide-react";
+
 const AudioPlayer = ({
   title,
   durationInSeconds,
+  audioSrc,
   isReplaceable,
   onReplace,
   isCompact,
 }) => {
+  const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(30);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [resolvedDuration, setResolvedDuration] = useState(
+    durationInSeconds || 0
+  );
+  const displayedDuration = resolvedDuration || durationInSeconds || 0;
 
   const formatTime = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds < 0) {
+      return "0:00";
+    }
+
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  const currentTime = (progress / 100) * durationInSeconds;
-  const handleReplace = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+
+  const handlePlayPause = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const audio = audioRef.current;
+
+    if (!audio || !audioSrc) {
+      return;
+    }
+
+    if (isPlaying) {
+      audio.pause();
+      return;
+    }
+
+    try {
+      if (audio.ended) {
+        audio.currentTime = 0;
+        setCurrentTime(0);
+        setProgress(0);
+      }
+
+      await audio.play();
+    } catch (error) {
+      console.error("Unable to play audio:", error);
+    }
+  };
+
+  const handleReplace = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     if (onReplace) {
       onReplace();
     }
   };
+
   return (
     <div
       className={`flex items-center gap-6 rounded-2xl p-5 ${
@@ -32,8 +74,9 @@ const AudioPlayer = ({
       } group transition-all`}
     >
       <button
-        onClick={() => setIsPlaying(!isPlaying)}
-        className="w-14 h-14 bg-[#4A7C59] hover:bg-[#3d6649] rounded-full flex items-center justify-center transition-all duration-300 shadow-lg active:scale-90 flex-shrink-0"
+        onClick={handlePlayPause}
+        disabled={!audioSrc}
+        className="w-14 h-14 bg-[#4A7C59] hover:bg-[#3d6649] rounded-full flex items-center justify-center transition-all duration-300 shadow-lg active:scale-90 flex-shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPlaying ? (
           <Pause className="w-12 h-6 text-white" fill="currentColor" />
@@ -59,10 +102,10 @@ const AudioPlayer = ({
         </div>
         <div className="flex justify-between mt-1.5">
           <span className="text-[10px] font-sans text-[#1E3224] font-medium opacity-80">
-            {formatTime(Math.floor(currentTime))}
+            {formatTime(currentTime)}
           </span>
           <span className="text-[10px] font-sans text-[#1E3224] font-medium opacity-80">
-            {formatTime(durationInSeconds)}
+            {formatTime(displayedDuration)}
           </span>
         </div>
       </div>
@@ -74,6 +117,34 @@ const AudioPlayer = ({
           Replace
         </button>
       )}
+      <audio
+        ref={audioRef}
+        src={audioSrc}
+        preload="metadata"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => {
+          setIsPlaying(false);
+          setProgress(100);
+          setCurrentTime(displayedDuration);
+        }}
+        onTimeUpdate={(event) => {
+          const nextCurrentTime = event.currentTarget.currentTime || 0;
+          const nextDuration =
+            event.currentTarget.duration || displayedDuration || 0;
+
+          setCurrentTime(nextCurrentTime);
+          setProgress(
+            nextDuration > 0 ? (nextCurrentTime / nextDuration) * 100 : 0
+          );
+        }}
+        onLoadedMetadata={(event) => {
+          const nextDuration =
+            event.currentTarget.duration || durationInSeconds || 0;
+
+          setResolvedDuration(nextDuration);
+        }}
+      />
     </div>
   );
 };
