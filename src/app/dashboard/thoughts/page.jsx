@@ -152,7 +152,7 @@ const thoughtsData = [
     status: "locked",
   },
 
-  
+
   {
     id: 4,
     type: "coming-soon",
@@ -324,9 +324,9 @@ export default function ThoughtsPage() {
   const selectedVideo =
     activeVideoModal === "mindfulness"
       ? mindfulnessVideos.find((video) => video.id === activeMindfulnessVideoId) ||
-        mindfulnessVideos[0]
+      mindfulnessVideos[0]
       : thankingMindVideos.find((video) => video.id === activeThankingMindVideoId) ||
-        thankingMindVideos[0];
+      thankingMindVideos[0];
 
   const currentModalVideos =
     activeVideoModal === "mindfulness" ? mindfulnessVideos : thankingMindVideos;
@@ -519,9 +519,8 @@ export default function ThoughtsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               onClick={() => handleItemClick(item)}
-              className={`group flex items-start gap-8 rounded-[28px] border border-white/60 bg-white/80 p-8 shadow-[0_8px_30px_rgba(0,0,0,0.03)] backdrop-blur-md ${
-                item.status === "active" ? "cursor-pointer hover:border-[#D8E9DD]" : ""
-              }`}
+              className={`group flex items-start gap-8 rounded-[28px] border border-white/60 bg-white/80 p-8 shadow-[0_8px_30px_rgba(0,0,0,0.03)] backdrop-blur-md ${item.status === "active" ? "cursor-pointer hover:border-[#D8E9DD]" : ""
+                }`}
             >
               <div className="flex-shrink-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F3F4F6] text-lg font-bold text-[#9CA3AF]">
@@ -533,13 +532,12 @@ export default function ThoughtsPage() {
                 {item.tag && (
                   <div className="flex">
                     <span
-                      className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-[13px] font-bold tracking-tight ${
-                        item.tag === "Audio" || item.tag === "Video Series"
-                          ? "bg-[#D1FAE5] text-[#065F46]"
-                          : item.tag === "Completed"
-                            ? "bg-[#E0F2FE] text-[#0C4A6E]"
-                            : "bg-[#F3F4F6] text-[#9CA3AF]"
-                      }`}
+                      className={`inline-flex items-center gap-2 rounded-md px-3 py-1 text-[13px] font-bold tracking-tight ${item.tag === "Audio" || item.tag === "Video Series"
+                        ? "bg-[#D1FAE5] text-[#065F46]"
+                        : item.tag === "Completed"
+                          ? "bg-[#E0F2FE] text-[#0C4A6E]"
+                          : "bg-[#F3F4F6] text-[#9CA3AF]"
+                        }`}
                     >
                       {item.tag === "Audio" && <Music className="h-3.5 w-3.5" />}
                       {item.tag === "Video Series" && <Video className="h-3.5 w-3.5" />}
@@ -549,16 +547,14 @@ export default function ThoughtsPage() {
                   </div>
                 )}
                 <h3
-                  className={`text-2xl font-bold ${
-                    item.state === "locked" ? "text-[#9CA3AF]" : "text-[#1F2937]"
-                  }`}
+                  className={`text-2xl font-bold ${item.state === "locked" ? "text-[#9CA3AF]" : "text-[#1F2937]"
+                    }`}
                 >
                   {item.title}
                 </h3>
                 <p
-                  className={`text-lg ${
-                    item.state === "locked" ? "text-[#9CA3AF]" : "text-[#4B5563]"
-                  }`}
+                  className={`text-lg ${item.state === "locked" ? "text-[#9CA3AF]" : "text-[#4B5563]"
+                    }`}
                 >
                   {item.description}
                 </p>
@@ -592,9 +588,8 @@ export default function ThoughtsPage() {
                     <Pause className="h-8 w-8 text-[#4A7C59] transition-transform hover:scale-110" />
                   ) : (
                     <Play
-                      className={`h-8 w-8 transition-transform hover:scale-110 ${
-                        item.state === "completed" ? "text-[#4A7C59]" : "text-[#9CA3AF]"
-                      }`}
+                      className={`h-8 w-8 transition-transform hover:scale-110 ${item.state === "completed" ? "text-[#4A7C59]" : "text-[#9CA3AF]"
+                        }`}
                     />
                   )
                 ) : item.id === 3 && item.status === "active" ? (
@@ -681,26 +676,24 @@ export default function ThoughtsPage() {
 
                         setSelectedThankingMindVideoId(video.id);
                       }}
-                      className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${
-                        isLocked
-                          ? "cursor-not-allowed border-white/60 bg-white/45 opacity-70"
-                          : isSelected
-                            ? "border-[#4A7C59] bg-white shadow-md"
-                            : "border-white/70 bg-white/70 hover:border-[#C9DCCF]"
-                      }`}
+                      className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${isLocked
+                        ? "cursor-not-allowed border-white/60 bg-white/45 opacity-70"
+                        : isSelected
+                          ? "border-[#4A7C59] bg-white shadow-md"
+                          : "border-white/70 bg-white/70 hover:border-[#C9DCCF]"
+                        }`}
                     >
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7B8B80]">
                           Video {index + 1}
                         </span>
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                            isLocked
-                              ? "bg-[#F3F4F6] text-[#9CA3AF]"
-                              : isWatched
-                                ? "bg-[#D1FAE5] text-[#065F46]"
-                                : "bg-[#F3F4F6] text-[#7C7C7C]"
-                          }`}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${isLocked
+                            ? "bg-[#F3F4F6] text-[#9CA3AF]"
+                            : isWatched
+                              ? "bg-[#D1FAE5] text-[#065F46]"
+                              : "bg-[#F3F4F6] text-[#7C7C7C]"
+                            }`}
                         >
                           {isLocked ? "Locked" : isWatched ? "Watched" : "Open"}
                         </span>
