@@ -2,6 +2,145 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useStoredAuth } from "@/redux/authStorage";
+
+const CURRENT_EMDR_SESSION_STORAGE_KEY = "currentEMDRSessionId";
+
+const getBaseUrl = () => {
+  const rawBaseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+
+  return rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+};
+
+const emdrSessionRequest = async ({
+  baseUrl,
+  token,
+  path,
+  method = "GET",
+  body,
+}) => {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const result = await response.json().catch(() => null);
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.message || "Failed to save EMDR session.");
+  }
+
+  return result?.data;
+};
+
+const startEmdrSession = ({ baseUrl, token, sessionType }) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: "/api/emdr-session/start",
+    method: "POST",
+    body: {
+      sessionType,
+    },
+  });
+
+const saveEmdrTarget = ({
+  baseUrl,
+  token,
+  sessionId,
+  targetDescription,
+  freezeFrame,
+}) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/target`,
+    method: "PATCH",
+    body: {
+      targetDescription,
+      freezeFrame,
+    },
+  });
+
+const saveEmdrBeliefs = ({ baseUrl, token, sessionId, beliefPairs }) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/beliefs`,
+    method: "PATCH",
+    body: {
+      beliefPairs,
+    },
+  });
+
+const saveEmdrEmotions = ({
+  baseUrl,
+  token,
+  sessionId,
+  primaryEmotion,
+  additionalEmotions,
+  bodyLocation,
+}) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/emotions`,
+    method: "PATCH",
+    body: {
+      primaryEmotion,
+      additionalEmotions,
+      bodyLocation,
+    },
+  });
+
+const saveEmdrSud = ({ baseUrl, token, sessionId, sudRating }) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/sud`,
+    method: "PATCH",
+    body: {
+      sudRating,
+    },
+  });
+
+const saveEmdrAddiction = ({
+  baseUrl,
+  token,
+  sessionId,
+  aspect,
+  positiveFeeling,
+  pfsRating,
+  associatedThoughts,
+  bodyLocation,
+  visualization,
+}) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/addiction`,
+    method: "PATCH",
+    body: {
+      aspect,
+      positiveFeeling,
+      pfsRating,
+      associatedThoughts,
+      bodyLocation,
+      visualization,
+    },
+  });
+
+const completeEmdrSession = ({ baseUrl, token, sessionId }) =>
+  emdrSessionRequest({
+    baseUrl,
+    token,
+    path: `/api/emdr-session/${sessionId}/complete`,
+    method: "PATCH",
+  });
 
 const negativeBeliefs = {
   "RESPONSIBILITY - I AM SOMETHING 'WRONG'": [
@@ -248,6 +387,7 @@ const createSummaryMarkup = ({ responses, beliefPairs }) => {
 export default function EMDRCompanion() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { token, hasHydrated } = useStoredAuth();
   const chatboxRef = useRef(null);
   const currentFlowRef = useRef(null);
   const currentStepRef = useRef(-1);
@@ -255,9 +395,12 @@ export default function EMDRCompanion() {
   const selectedNegativeBeliefsRef = useRef([]);
   const beliefPairsRef = useRef([]);
   const currentNegativeBeliefIndexRef = useRef(0);
+  const sessionIdRef = useRef("");
+  const sessionTypeRef = useRef("");
 
   const journeyId = searchParams.get("journeyId") || "";
   const journeyTitle = searchParams.get("title") || "";
+  const baseUrl = useMemo(() => getBaseUrl(), []);
   const nextSessionRoute = useMemo(() => {
     if (!journeyId) {
       return "/dashboard/EMDRCompanion/session/session5";
@@ -292,12 +435,87 @@ export default function EMDRCompanion() {
   const [renderBeliefPairs, setRenderBeliefPairs] = useState([]);
   const [renderCurrentNegativeBeliefIndex, setRenderCurrentNegativeBeliefIndex] =
     useState(0);
+  const [sessionError, setSessionError] = useState("");
+  const [isSyncingSession, setIsSyncingSession] = useState(false);
 
   useEffect(() => {
     if (chatboxRef.current) {
       chatboxRef.current.scrollTop = chatboxRef.current.scrollHeight;
     }
   }, [messages, currentInteraction, summaryData]);
+
+  const ensureSessionPrerequisites = () => {
+    if (!baseUrl) {
+      throw new Error("EMDR session service is not configured.");
+    }
+
+    if (!hasHydrated) {
+      throw new Error("Please wait a moment and try again.");
+    }
+
+    if (!token) {
+      throw new Error("Please sign in again to continue your EMDR session.");
+    }
+  };
+
+  const ensureSessionId = () => {
+    if (!sessionIdRef.current) {
+      throw new Error("Your EMDR session was not started. Please begin again.");
+    }
+
+    return sessionIdRef.current;
+  };
+
+  const runSessionRequest = async (action) => {
+    setIsSyncingSession(true);
+    setSessionError("");
+
+    try {
+      await action();
+      return true;
+    } catch (error) {
+      console.error("Error syncing EMDR session:", error);
+      setSessionError(
+        error?.message || "Unable to save your EMDR session right now."
+      );
+      return false;
+    } finally {
+      setIsSyncingSession(false);
+    }
+  };
+
+  const getEmotionPayload = (responses) => {
+    if (sessionTypeRef.current === "negative") {
+      return {
+        primaryEmotion: responses[1] || "",
+        additionalEmotions: responses[6] || "",
+        bodyLocation: responses[7] || "",
+      };
+    }
+
+    return {
+      primaryEmotion: responses[6] || "",
+      additionalEmotions: responses[7] || "",
+      bodyLocation: responses[8] || "",
+    };
+  };
+
+  const persistSummaryLocally = (nextSummary) => {
+    const sessionData = {
+      date: new Date().toISOString(),
+      sessionId: sessionIdRef.current || "",
+      sessionType: sessionTypeRef.current || "",
+      startingPoint: responsesRef.current[0] || "",
+      beliefPairs: beliefPairsRef.current,
+      responses: responsesRef.current,
+      summary: nextSummary,
+    };
+
+    const sessions = JSON.parse(localStorage.getItem("emdrSessions") || "[]");
+    sessions.push(sessionData);
+    localStorage.setItem("emdrSessions", JSON.stringify(sessions));
+    localStorage.setItem("lastEMDRSession", JSON.stringify(sessionData));
+  };
 
   const appendBotMessage = (text) => {
     setMessages((currentMessages) => [
@@ -321,7 +539,7 @@ export default function EMDRCompanion() {
     ]);
   };
 
-  const displaySummary = () => {
+  const displaySummary = async () => {
     const nextSummary = createSummaryMarkup({
       responses: responsesRef.current,
       beliefPairs: beliefPairsRef.current,
@@ -330,19 +548,32 @@ export default function EMDRCompanion() {
     setSummaryData(nextSummary);
     setIsSessionComplete(true);
     setCurrentInteraction(null);
+    persistSummaryLocally(nextSummary);
 
-    const sessionData = {
-      date: new Date().toISOString(),
-      startingPoint: responsesRef.current[0] || "",
-      beliefPairs: beliefPairsRef.current,
-      responses: responsesRef.current,
-      summary: nextSummary,
-    };
+    if (!sessionIdRef.current) {
+      return;
+    }
 
-    const sessions = JSON.parse(localStorage.getItem("emdrSessions") || "[]");
-    sessions.push(sessionData);
-    localStorage.setItem("emdrSessions", JSON.stringify(sessions));
-    localStorage.setItem("lastEMDRSession", JSON.stringify(sessionData));
+    setIsSyncingSession(true);
+
+    try {
+      ensureSessionPrerequisites();
+      await completeEmdrSession({
+        baseUrl,
+        token,
+        sessionId: sessionIdRef.current,
+      });
+      localStorage.removeItem(CURRENT_EMDR_SESSION_STORAGE_KEY);
+      sessionIdRef.current = "";
+    } catch (error) {
+      console.error("Error completing EMDR session:", error);
+      setSessionError(
+        error?.message ||
+          "Your summary was saved locally, but we could not complete the session online."
+      );
+    } finally {
+      setIsSyncingSession(false);
+    }
   };
 
   const askNext = () => {
@@ -361,7 +592,7 @@ export default function EMDRCompanion() {
       appendBotMessage(
         "Thank you for sharing. I'm preparing your session summary now..."
       );
-      displaySummary();
+      void displaySummary();
       return;
     }
 
@@ -437,7 +668,7 @@ export default function EMDRCompanion() {
       appendBotMessage(
         "Great. Now we'll begin bilateral stimulation (BLS) to process this positive feeling. Continue with BLS until the Positive Feeling Scale reaches 0 or 1. Remember: The goal is to reduce the intensity of the pleasurable feeling associated with the addictive behavior, not to eliminate all positive feelings in your life."
       );
-      displaySummary();
+      void displaySummary();
       return;
     }
 
@@ -445,12 +676,44 @@ export default function EMDRCompanion() {
     setCurrentInteraction({ type: "text" });
   };
 
-  const handleStartingChoice = (choiceId) => {
+  const handleStartingChoice = async (choiceId) => {
     const label = getChoiceLabel(choiceId);
+    const started = await runSessionRequest(async () => {
+      ensureSessionPrerequisites();
+      const session = await startEmdrSession({
+        baseUrl,
+        token,
+        sessionType: choiceId,
+      });
+      const nextSessionId = session?._id || session?.id || "";
+
+      if (!nextSessionId) {
+        throw new Error("The EMDR session started without returning an id.");
+      }
+
+      sessionIdRef.current = nextSessionId;
+      sessionTypeRef.current = choiceId;
+      localStorage.setItem(CURRENT_EMDR_SESSION_STORAGE_KEY, nextSessionId);
+    });
+
+    if (!started) {
+      return;
+    }
+
     appendUserMessage(label);
     responsesRef.current = [`Starting point: ${label}`];
     currentFlowRef.current = questionFlows[choiceId];
     currentStepRef.current = 0;
+    beliefPairsRef.current = [];
+    selectedNegativeBeliefsRef.current = [];
+    currentNegativeBeliefIndexRef.current = 0;
+    setSummaryData(null);
+    setIsSessionComplete(false);
+    setSelectedBeliefs([]);
+    setSelectedRating(null);
+    setRenderNegativeBeliefs([]);
+    setRenderBeliefPairs([]);
+    setRenderCurrentNegativeBeliefIndex(0);
     setCurrentInteraction(null);
 
     window.setTimeout(() => {
@@ -458,14 +721,67 @@ export default function EMDRCompanion() {
     }, 150);
   };
 
-  const handleSubmitText = () => {
+  const handleSubmitText = async () => {
     const input = userInput.trim();
     if (!input) {
       return;
     }
 
+    const nextResponses = [...responsesRef.current, input];
+    const currentStep = currentStepRef.current;
+    let synced = true;
+
+    if (sessionTypeRef.current !== "addiction" && currentStep === 1) {
+      synced = await runSessionRequest(async () => {
+        ensureSessionPrerequisites();
+        await saveEmdrTarget({
+          baseUrl,
+          token,
+          sessionId: ensureSessionId(),
+          targetDescription: nextResponses[1] || "",
+          freezeFrame: nextResponses[2] || "",
+        });
+      });
+    } else if (
+      sessionTypeRef.current !== "addiction" &&
+      ((sessionTypeRef.current === "negative" && currentStep === 6) ||
+        (sessionTypeRef.current !== "negative" && currentStep === 7))
+    ) {
+      synced = await runSessionRequest(async () => {
+        ensureSessionPrerequisites();
+        const emotionPayload = getEmotionPayload(nextResponses);
+        await saveEmdrEmotions({
+          baseUrl,
+          token,
+          sessionId: ensureSessionId(),
+          primaryEmotion: emotionPayload.primaryEmotion,
+          additionalEmotions: emotionPayload.additionalEmotions,
+          bodyLocation: emotionPayload.bodyLocation,
+        });
+      });
+    } else if (sessionTypeRef.current === "addiction" && currentStep === 5) {
+      synced = await runSessionRequest(async () => {
+        ensureSessionPrerequisites();
+        await saveEmdrAddiction({
+          baseUrl,
+          token,
+          sessionId: ensureSessionId(),
+          aspect: nextResponses[1] || "",
+          positiveFeeling: nextResponses[2] || "",
+          pfsRating: Number(nextResponses[3] || 0),
+          associatedThoughts: nextResponses[4] || "",
+          bodyLocation: nextResponses[5] || "",
+          visualization: nextResponses[6] || "",
+        });
+      });
+    }
+
+    if (!synced) {
+      return;
+    }
+
     appendUserMessage(input);
-    responsesRef.current = [...responsesRef.current, input];
+    responsesRef.current = nextResponses;
     setUserInput("");
     currentStepRef.current += 1;
     setCurrentInteraction(null);
@@ -480,6 +796,7 @@ export default function EMDRCompanion() {
       return;
     }
 
+    setSessionError("");
     selectedNegativeBeliefsRef.current = selectedBeliefs;
     currentNegativeBeliefIndexRef.current = 0;
     setRenderNegativeBeliefs(selectedBeliefs);
@@ -504,6 +821,7 @@ export default function EMDRCompanion() {
       return;
     }
 
+    setSessionError("");
     const currentNegativeBelief =
       selectedNegativeBeliefsRef.current[currentNegativeBeliefIndexRef.current];
     const positiveBelief = selectedBeliefs[0];
@@ -550,8 +868,40 @@ export default function EMDRCompanion() {
     }, 150);
   };
 
-  const handleRatingContinue = () => {
+  const handleRatingContinue = async () => {
     if (selectedRating === null) {
+      return;
+    }
+
+    let synced = true;
+
+    if (currentInteraction?.ratingType === "voc") {
+      synced = await runSessionRequest(async () => {
+        ensureSessionPrerequisites();
+        await saveEmdrBeliefs({
+          baseUrl,
+          token,
+          sessionId: ensureSessionId(),
+          beliefPairs: beliefPairsRef.current.map((pair) => ({
+            negativeBelief: pair.negative,
+            positiveBelief: pair.positive,
+            vocRating: selectedRating,
+          })),
+        });
+      });
+    } else if (currentInteraction?.ratingType === "sud") {
+      synced = await runSessionRequest(async () => {
+        ensureSessionPrerequisites();
+        await saveEmdrSud({
+          baseUrl,
+          token,
+          sessionId: ensureSessionId(),
+          sudRating: selectedRating,
+        });
+      });
+    }
+
+    if (!synced) {
       return;
     }
 
@@ -586,6 +936,11 @@ export default function EMDRCompanion() {
         I&apos;m here to gently guide you through preparing for your first EMDR
         session. We&apos;ll work together at your pace.
       </p>
+      {sessionError ? (
+        <div className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {sessionError}
+        </div>
+      ) : null}
 
       <div
         ref={chatboxRef}
@@ -611,7 +966,8 @@ export default function EMDRCompanion() {
                     key={choice.id}
                     type="button"
                     onClick={() => handleStartingChoice(choice.id)}
-                    className={`rounded-xl border-2 bg-white p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${choice.cardClass}`}
+                    disabled={isSyncingSession}
+                    className={`rounded-xl border-2 bg-white p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 ${choice.cardClass}`}
                   >
                     <h5 className="mb-2 text-sm font-semibold text-[#3e4e44]">
                       {choice.title}
@@ -728,7 +1084,7 @@ export default function EMDRCompanion() {
                     ? handleNegativeBeliefsContinue
                     : handlePositiveBeliefContinue
                 }
-                disabled={selectedBeliefs.length === 0}
+                disabled={selectedBeliefs.length === 0 || isSyncingSession}
                 className="mx-auto mt-5 block rounded-md bg-[#41594d] px-6 py-3 text-sm text-white transition-colors hover:bg-[#354a3f] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {currentInteraction.beliefType === "negative"
@@ -791,6 +1147,7 @@ export default function EMDRCompanion() {
                     key={value}
                     type="button"
                     onClick={() => setSelectedRating(value)}
+                    disabled={isSyncingSession}
                     className={`flex h-[50px] w-[50px] items-center justify-center rounded-full border-2 text-lg font-semibold transition-all ${
                       selectedRating === value
                         ? "scale-110 border-[#41594d] bg-[#41594d] text-white"
@@ -822,7 +1179,7 @@ export default function EMDRCompanion() {
               <button
                 type="button"
                 onClick={handleRatingContinue}
-                disabled={selectedRating === null}
+                disabled={selectedRating === null || isSyncingSession}
                 className="rounded-md bg-[#41594d] px-6 py-3 text-sm text-white transition-colors hover:bg-[#354a3f] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Continue
@@ -904,6 +1261,7 @@ export default function EMDRCompanion() {
             type="text"
             value={userInput}
             onChange={(event) => setUserInput(event.target.value)}
+            disabled={isSyncingSession}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
@@ -916,9 +1274,10 @@ export default function EMDRCompanion() {
           <button
             type="button"
             onClick={handleSubmitText}
-            className="rounded-lg bg-[#41594d] px-6 py-3 text-base text-white transition-colors hover:bg-[#354a3f]"
+            disabled={isSyncingSession}
+            className="rounded-lg bg-[#41594d] px-6 py-3 text-base text-white transition-colors hover:bg-[#354a3f] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Send
+            {isSyncingSession ? "Saving..." : "Send"}
           </button>
         </div>
       ) : null}
@@ -927,7 +1286,8 @@ export default function EMDRCompanion() {
         <button
           type="button"
           onClick={() => router.push(nextSessionRoute)}
-          className="mt-6 rounded-lg bg-[#41594d] px-6 py-3 text-base text-white transition-colors hover:bg-[#354a3f]"
+          disabled={isSyncingSession}
+          className="mt-6 rounded-lg bg-[#41594d] px-6 py-3 text-base text-white transition-colors hover:bg-[#354a3f] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Continue to Next Session
         </button>
