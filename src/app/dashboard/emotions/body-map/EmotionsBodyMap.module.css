@@ -340,9 +340,30 @@
 }
 
 .logoArea {
-  text-align: center;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 20px;
   font-family: 'Georgia', serif;
+}
+
+.backButton {
+  position: absolute;
+  left: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  color: #2c5f2d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.backButton:hover {
+  opacity: 0.7;
 }
 
 .logoText {

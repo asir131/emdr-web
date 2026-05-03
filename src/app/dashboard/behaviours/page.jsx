@@ -11,7 +11,7 @@ const INITIAL_HIERARCHY = [
     status: "not-started",
     attempts: 0,
     mastered: false,
-    plannedDay: "",
+    plannedDay: "", 
   },
   {
     step: "Make small talk with a colleague at the coffee machine",

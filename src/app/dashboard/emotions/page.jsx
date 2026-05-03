@@ -95,7 +95,7 @@ export default function EmotionsLanding() {
   return (
     <div className="  p-4">
       {/* Container Frame */}
-      <div className=" bg-white/20 backdrop-blur-md rounded-[40px] border border-white/50  p-2">
+      <div className=" bg-white/30 rounded-[40px] border border-white/50  p-2">
         {/* Centered Title */}
         <div className="py-10 text-center">
           <h1 className="text-[28px] text-[#000000]">Emotions</h1>
@@ -114,7 +114,7 @@ export default function EmotionsLanding() {
                 <button
                   type="button"
                   onClick={() => handleAudioToggle(tool)}
-                  className="group w-full bg-white/40 rounded-[24px] border border-stone-100 p-6 md:p-8 flex items-center justify-between transition-all duration-500 hover:shadow-lg hover:border-stone-200 cursor-pointer overflow-hidden relative text-left"
+                  className="group w-full bg-white rounded-[24px] border border-stone-100 p-6 md:p-8 flex items-center justify-between transition-all duration-500 hover:shadow-lg hover:border-stone-200 cursor-pointer overflow-hidden relative text-left"
                 >
                   <div className="flex-1 relative z-10">
                     {/* Tool Badge */}
@@ -162,7 +162,7 @@ export default function EmotionsLanding() {
                 </button>
               ) : (
                 <Link href={tool.link}>
-                  <div className="group bg-white/40 rounded-[24px] border border-stone-100 p-6 md:p-8 flex items-center justify-between transition-all duration-500 hover:shadow-lg hover:border-stone-200 cursor-pointer overflow-hidden relative">
+                  <div className="group bg-white rounded-[24px] border border-stone-100 p-6 md:p-8 flex items-center justify-between transition-all duration-500 hover:shadow-lg hover:border-stone-200 cursor-pointer overflow-hidden relative">
                     <div className="flex-1 relative z-10">
                       {/* Tool Badge */}
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#E8F3EA] text-[#5a7c5a] mb-5 border border-[#5a7c5a]/10">

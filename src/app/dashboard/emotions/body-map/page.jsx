@@ -1,10 +1,12 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { IoArrowBack } from 'react-icons/io5';
 import styles from './EmotionsBodyMap.module.css';
 
 export default function EmotionsBodyMap() {
+    const router = useRouter();
     const [currentColor, setCurrentColor] = useState('#e57373');
     const [brushSize, setBrushSize] = useState(15);
     const [isErasing, setIsErasing] = useState(false);
@@ -371,9 +373,9 @@ export default function EmotionsBodyMap() {
         <div className={styles.pageContainer}>
             <div className={styles.container}>
                 <div className={styles.logoArea}>
-                    <Link href="/dashboard" className={styles.backButton}>
+                    <button onClick={() => router.back()} className={styles.backButton}>
                         <IoArrowBack size={24} />
-                    </Link>
+                    </button>
                     <span className={styles.logoText}>INKIND EMDR</span>
                 </div>
                 <h1 className={styles.title}>Where Do You Feel It?</h1>
