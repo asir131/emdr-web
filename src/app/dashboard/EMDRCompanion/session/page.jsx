@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 
 const FIXED_SESSION_VIDEO_ID = "69e7c604fd68f032aa7a2c61";
 const FIXED_SESSION_VIDEO_CATEGORY = "session-1";
@@ -391,7 +392,18 @@ export default function EMDRSession() {
                 ))}
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const activeJourneyId = journeyId || localStorage.getItem("activeJourneyId");
+                  
+                  if (activeJourneyId && token && baseUrl) {
+                    await updateSessionProgress({
+                      baseUrl,
+                      token,
+                      journeyId: activeJourneyId,
+                      compledSession: 1
+                    });
+                  }
+
                   router.push(
                     `/dashboard/EMDRCompanion/session/next?journeyId=${encodeURIComponent(
                       journeyId

@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 import VisualSelector from "@/components/dashboard/EMDRCompanion/CalmSpace/VisualSelector";
 import PlaceDescription from "@/components/dashboard/EMDRCompanion/CalmSpace/PlaceDescription";
 import MoodSetter from "@/components/dashboard/EMDRCompanion/CalmSpace/MoodSetter";
@@ -387,6 +388,16 @@ const MeditationSpaceApp = () => {
         throw new Error(
           "The sound file was not saved. Please try again or choose a smaller MP3/WAV file.",
         );
+      }
+
+      const activeJourneyId = localStorage.getItem("activeJourneyId");
+      if (activeJourneyId && token && baseUrl) {
+        await updateSessionProgress({
+          baseUrl,
+          token,
+          journeyId: activeJourneyId,
+          compledSession: 3,
+        });
       }
 
       router.push("/dashboard/EMDRCompanion");

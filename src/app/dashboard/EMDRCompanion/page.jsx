@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 
 const CURRENT_EMDR_SESSION_STORAGE_KEY = "currentEMDRSessionId";
 
@@ -1285,7 +1286,18 @@ export default function EMDRCompanion() {
       {isSessionComplete ? (
         <button
           type="button"
-          onClick={() => router.push(nextSessionRoute)}
+          onClick={async () => {
+            const activeJourneyId = localStorage.getItem("activeJourneyId");
+            if (activeJourneyId && token && baseUrl) {
+              await updateSessionProgress({
+                baseUrl,
+                token,
+                journeyId: activeJourneyId,
+                compledSession: 5,
+              });
+            }
+            router.push(nextSessionRoute);
+          }}
           disabled={isSyncingSession}
           className="mt-6 rounded-lg bg-[#41594d] px-6 py-3 text-base text-white transition-colors hover:bg-[#354a3f] disabled:cursor-not-allowed disabled:opacity-50"
         >

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 import {
   buildCbtFormulationNodes,
   buildAnswersFromCbtFormulationEntry,
@@ -390,6 +391,16 @@ export default function CBTFormulation() {
       });
 
       setCurrentFormulationId(result?.data?._id || currentFormulationId);
+
+      const activeJourneyId = localStorage.getItem("activeJourneyId");
+      if (activeJourneyId && token && baseUrl) {
+        await updateSessionProgress({
+          baseUrl,
+          token,
+          journeyId: activeJourneyId,
+          compledSession: 2,
+        });
+      }
 
       router.push("/dashboard/EMDRCompanion/session/next/calm-space");
     } catch (error) {

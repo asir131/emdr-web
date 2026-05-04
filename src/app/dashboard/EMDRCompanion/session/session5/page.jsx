@@ -1,12 +1,18 @@
 "use client";
 import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 
 export default function Session5Page() {
   const router = useRouter();
+  const { token } = useStoredAuth();
   const videoRef = useRef(null);
   const maxTimeWatched = useRef(0);
   const [videoCompleted, setVideoCompleted] = useState(false);
+
+  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+  const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -69,9 +75,19 @@ export default function Session5Page() {
             </p>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (!videoCompleted) {
                 return;
+              }
+
+              const activeJourneyId = localStorage.getItem("activeJourneyId");
+              if (activeJourneyId && token && baseUrl) {
+                await updateSessionProgress({
+                  baseUrl,
+                  token,
+                  journeyId: activeJourneyId,
+                  compledSession: 5,
+                });
               }
 
               router.push("/dashboard/resources/bilateral");

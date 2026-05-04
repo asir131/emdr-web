@@ -116,18 +116,56 @@ export default function AnxietyCard() {
           throw new Error(result?.message || "Failed to fetch journeys.");
         }
 
-        const items = (result?.data || []).map((journey, index) => ({
-          id: journey?._id || `journey-${index}`,
-          title: journey?.journeyName || `Journey ${index + 1}`,
-          description: journey?.description?.trim() || "No description added yet.",
-          date: formatJourneyDate(journey?.createdAt),
-          lastAccessed: formatRelativeTime(journey?.updatedAt || journey?.createdAt),
-          progress: DEFAULT_PROGRESS,
-          sessions: journey?.sessions || "2/12",
-          image: journey?.imageUrl || "/homeImage/background.jpg",
-        }));
+        const rawItems = result?.data || [];
 
-        setJourneys(items);
+        // Fetch progress for each journey in parallel
+        const itemsWithProgress = await Promise.all(
+          rawItems.map(async (journey, index) => {
+            let progressValue = DEFAULT_PROGRESS;
+            let sessionDetail = "0/10";
+            let completedSessions = 0;
+
+            try {
+              const progressResponse = await fetch(
+                `${baseUrl}/api/session-progress/${journey._id}`,
+                {
+                  cache: "no-store",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+              const progressResult = await progressResponse.json();
+
+              if (progressResponse.ok && progressResult?.success) {
+                const percentageStr = progressResult.data?.totalCompledSession || "0%";
+                progressValue = parseInt(percentageStr.replace("%", ""), 10) || 0;
+
+                const details = progressResult.data?.details;
+                if (details) {
+                  completedSessions = details.completedSessions || 0;
+                  sessionDetail = `${completedSessions}/${details.totalSessions || 10}`;
+                }
+              }
+            } catch (err) {
+              console.error(`Error fetching progress for journey ${journey._id}:`, err);
+            }
+
+            return {
+              id: journey?._id || `journey-${index}`,
+              title: journey?.journeyName || `Journey ${index + 1}`,
+              description: journey?.description?.trim() || "No description added yet.",
+              date: formatJourneyDate(journey?.createdAt),
+              lastAccessed: formatRelativeTime(journey?.updatedAt || journey?.createdAt),
+              progress: progressValue,
+              sessions: sessionDetail,
+              completedCount: completedSessions,
+              image: journey?.imageUrl || "/homeImage/background.jpg",
+            };
+          })
+        );
+
+        setJourneys(itemsWithProgress);
         setCurrentPage(0);
       } catch (fetchError) {
         console.error("Error fetching journeys:", fetchError);
@@ -145,6 +183,25 @@ export default function AnxietyCard() {
     const startIndex = currentPage * JOURNEYS_PER_PAGE;
     return journeys.slice(startIndex, startIndex + JOURNEYS_PER_PAGE);
   }, [currentPage, journeys]);
+
+  const handleContinue = (journey) => {
+    localStorage.setItem("activeJourneyId", journey.id);
+    
+    const count = journey.completedCount || 0;
+    
+    // Mapping completedSessions to the NEXT session page
+    if (count === 0) {
+      router.push(`/dashboard/EMDRCompanion/session?journeyId=${journey.id}&title=${encodeURIComponent(journey.title)}`);
+    } else if (count === 1) {
+      router.push(`/dashboard/EMDRCompanion/session/next?journeyId=${journey.id}&title=${encodeURIComponent(journey.title)}`);
+    } else if (count === 2) {
+      router.push(`/dashboard/EMDRCompanion/session/next/calm-space`);
+    } else if (count === 3 || count === 4) {
+      router.push(`/dashboard/EMDRCompanion`);
+    } else {
+      router.push(`/dashboard/EMDRCompanion/session/session5`);
+    }
+  };
 
   useEffect(() => {
     if (currentPage > 0 && currentPage >= totalPages) {
@@ -283,14 +340,8 @@ export default function AnxietyCard() {
 
             <button
               type="button"
-              // onClick={() =>
-              //   router.push(
-              //     `/dashboard/sessions?journeyId=${encodeURIComponent(
-              //       journey.id
-              //     )}&title=${encodeURIComponent(journey.title)}`
-              //   )
-              // }
-              className="w-full cursor-pointer rounded-xl bg-[#4A7C59] py-3 text-sm font-medium uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-[#4A7C59]"
+              onClick={() => handleContinue(journey)}
+              className="w-full cursor-pointer rounded-xl bg-[#4A7C59] py-3 text-sm font-medium uppercase tracking-wide text-white shadow-sm transition-colors hover:bg-[#3d6649]"
             >
               Continue Session
             </button>

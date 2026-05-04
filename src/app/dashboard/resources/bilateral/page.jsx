@@ -11,6 +11,7 @@ import BilateralSpeedSelector from "@/components/dashboard/bilateral/BilateralSp
 import BilateralDirectionSelector from "@/components/dashboard/bilateral/BilateralDirectionSelector";
 import { Save, Play } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
+import { updateSessionProgress } from "@/utils/sessionProgress";
 
 const postBilateralSettings = async ({ baseUrl, token, payload }) => {
   const response = await fetch(`${baseUrl}/api/bilateral/settings`, {
@@ -191,9 +192,29 @@ export default function BilateralSettingsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [baseUrl, currentPayloadSignature, isLoadingMedia, token]);
 
-  const handleBeginSession = () => {
+  const handleBeginSession = async () => {
     if (!selections.environment || !selections.icon || !selections.sound) {
       return;
+    }
+
+    const activeJourneyId = localStorage.getItem("activeJourneyId");
+    if (activeJourneyId && token && baseUrl) {
+      // Update sessions 6, 7, 8, 9, and 10 together as requested
+      const sessionsToUpdate = [6, 7, 8, 9, 10];
+      try {
+        await Promise.all(
+          sessionsToUpdate.map((num) =>
+            updateSessionProgress({
+              baseUrl,
+              token,
+              journeyId: activeJourneyId,
+              compledSession: num,
+            })
+          )
+        );
+      } catch (error) {
+        console.error("Error updating bulk session progress:", error);
+      }
     }
 
     const params = new URLSearchParams(selections);

@@ -141,6 +141,11 @@ export default function CreateJourney() {
         throw new Error(result?.message || "Failed to create journey.");
       }
 
+      const journeyId = result?.data?._id || result?.data?.id;
+      if (journeyId) {
+        localStorage.setItem("activeJourneyId", journeyId);
+      }
+
       router.push("/dashboard/assessments");
     } catch (error) {
       console.error("Error creating journey:", error);
