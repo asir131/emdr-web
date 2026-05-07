@@ -101,12 +101,12 @@ export default function BilateralSettingsPage() {
   const currentPayload =
     selectedEnvironment?.image && selectedIcon?.img && selectedSound?.url
       ? {
-          environmentId: selectedEnvironment.image,
-          iconUrl: selectedIcon.img,
-          soundId: selectedSound.url,
-          direction: selections.direction,
-          speed: selections.speed,
-        }
+        environmentId: selectedEnvironment.image,
+        iconUrl: selectedIcon.img,
+        soundId: selectedSound.url,
+        direction: selections.direction,
+        speed: selections.speed,
+      }
       : null;
   const currentPayloadSignature = currentPayload
     ? JSON.stringify(currentPayload)
