@@ -20,7 +20,7 @@ export const subscriptionApi = baseApi.injectEndpoints({
     }),
     applyForCommunityAccess: builder.mutation({
       query: (planId) => ({
-        url: "/subscriptions/apply",
+        url: "/api/subscriptions/apply",
         method: "POST",
         body: { planId },
       }),

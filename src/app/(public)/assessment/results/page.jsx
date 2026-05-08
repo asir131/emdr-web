@@ -29,8 +29,16 @@ const isFreeSelectedPlan = (plan) => {
 };
 
 const getSubscriptionErrorMessage = (error) => {
+    if (typeof error?.response?.data?.data?.message === "string") {
+        return error.response.data.data.message;
+    }
+
     if (typeof error?.response?.data?.message === "string") {
         return error.response.data.message;
+    }
+
+    if (typeof error?.response?.data?.error?.message === "string") {
+        return error.response.data.error.message;
     }
 
     if (typeof error?.response?.data?.error === "string") {
@@ -41,7 +49,7 @@ const getSubscriptionErrorMessage = (error) => {
         return error.message;
     }
 
-    return "Free plan activation failed. Please try again.";
+    return "Free plan application failed. Please try again.";
 };
 
 export default function ResultsPage() {
@@ -132,19 +140,23 @@ export default function ResultsPage() {
         setIsCompletingFreePlan(true);
 
         try {
-            await axios.post(
-                `${baseUrl}/api/subscriptions/subscribe`,
+            const response = await axios.post(
+                `${baseUrl}/api/subscriptions/apply`,
                 { planId: selectedPlan.id },
                 {
                     headers: { Authorization: `Bearer ${token}` }
                 }
             );
 
+            const successMessage =
+                response.data?.data?.message ||
+                "Your application has been submitted. Access will be granted once an admin approves your request.";
+
             localStorage.removeItem("selectedPlan");
-            toast.success("Free plan activated!");
+            toast.success(successMessage);
             router.push("/dashboard/profile");
         } catch (error) {
-            console.error("Free plan activation error:", error);
+            console.error("Free plan application error:", error?.response?.data || error);
             toast.error(getSubscriptionErrorMessage(error));
         } finally {
             setIsCompletingFreePlan(false);
@@ -277,7 +289,7 @@ export default function ResultsPage() {
                             className="flex-1 bg-[#4A7C59] text-white hover:bg-[#456b4c] px-6 py-4 rounded-md font-serif text-lg transition-all shadow-md active:scale-95 text-center disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             {isCompletingFreePlan
-                                ? "Activating..."
+                                ? "Submitting..."
                                 : isFreePlan
                                     ? "Complete"
                                     : "Continue"}
