@@ -155,14 +155,126 @@ const thoughtsData = [
 
   {
     id: 4,
-    type: "coming-soon",
-    tag: "Coming Soon",
+    type: "article",
+    tag: "Mindfulness",
     title: "Mindfulness",
     description:
       "A mindfulness meditation to cultivate present-moment awareness.",
     status: "locked",
   },
 ];
+
+const MindfulnessArticle = ({ onClose }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      className="rounded-[20px] border border-white/20 bg-white/50 p-6 md:p-12 shadow-2xl relative overflow-hidden"
+    >
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#d9d3c2]/25 via-transparent to-[#e7e0d2]/15" />
+
+      {/* <button
+        onClick={onClose}
+        className="relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/90 hover:bg-white text-[#4A7C59] transition-all shadow-sm font-semibold mb-8 border border-[#4A7C59]/10"
+      >
+        <X className="w-4 h-4" />
+        Back to Thoughts
+      </button> */}
+
+      <div className="relative z-10 mx-auto max-w-[900px]">
+        <h1 className="text-3xl  text-[#1F2937] mb-12 text-center font-serif font-medium tracking-tight leading-tight">
+          Before We Begin: Understanding Mindfulness
+        </h1>
+
+        <div className="flex justify-center mb-12">
+          <img
+            src="/images/I want a beautiful, whimsical, illustrated watercolour painting of a woman holding their brain, with all different thoughts with situations in, pop out..jpg"
+            alt="Thoughts flowing from the mind"
+            className="w-full max-w-[500px] rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-4 border-white"
+          />
+        </div>
+
+        <p className="text-xl md:text-2xl text-[#4B5563] mb-12 text-center italic leading-relaxed font-serif max-w-[800px] mx-auto">
+          "Mindfulness is a straightforward mental training practice backed by neuroscience research.
+          There's nothing mystical about it—it's simply about learning to pay attention in a specific way."
+        </p>
+
+        <div className="my-16 flex justify-center">
+          <video
+            controls
+            className="w-full max-w-[700px] rounded-[24px] shadow-xl border-2 border-white"
+            src="https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801087/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801065133.mp4"
+          />
+        </div>
+
+        <h2 className="text-3xl text-[#374151] mt-16 mb-8 font-serif font-semibold border-b-2 border-gray-200/50 pb-4 text-center">
+          The Basic Approach
+        </h2>
+
+        <div className="bg-white/40 backdrop-blur-sm p-8 md:p-10 rounded-[28px] my-12 border border-white/60 shadow-sm">
+          <ol className="list-decimal ml-6 space-y-6 text-lg md:text-xl text-[#374151] font-serif leading-relaxed">
+            <li>Find a comfortable seated position and close your eyes</li>
+            <li>Bring your awareness to your breathing—perhaps at your nostrils, chest, or abdomen, wherever the sensation feels clearest</li>
+            <li>Your attention will inevitably drift to thoughts, plans, or memories. When you realize this has happened, guide your focus back to breathing</li>
+          </ol>
+        </div>
+
+        <h2 className="text-3xl text-[#374151] mt-20 mb-8 font-serif font-semibold border-b-2 border-gray-200/50 pb-4 text-center">
+          Why This Matters
+        </h2>
+
+        <p className="mb-12 text-lg md:text-xl text-[#4B5563] leading-relaxed font-serif text-center max-w-[800px] mx-auto">
+          The practice isn't about achieving a blank mind or perfect concentration. Instead, each moment you
+          catch yourself thinking and return to the breath strengthens your capacity for present-moment awareness.
+          Research shows this literally reshapes neural pathways.
+        </p>
+
+        <div className="my-16 flex justify-center">
+          <img
+            src="/images/I want a beautiful, whimsical, illustrated watercolour painting of a person looking and holding their brain in their hands, watching all different thoughts with situations in, pop out. (1).jpg"
+            alt="Mind full of thoughts"
+            className="w-full md:w-3/4 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-4 border-white transition-transform hover:scale-[1.02] duration-500"
+          />
+        </div>
+
+        <div className="bg-white/50 backdrop-blur-md p-10 md:p-12 rounded-[32px] my-16 border border-white/60 shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-full bg-[#4A7C59]" />
+          <p className="text-xl  text-[#374151] leading-relaxed font-serif italic">
+            <strong className="text-[#4A7C59] font-semibold not-italic">Rather than being swept away by thoughts—unable to see past the mental noise—mindfulness
+              teaches you to take a step back and observe them as passing events.</strong> With practice, you begin
+            to notice your own patterns: the familiar loops of worry, the recurring narratives, the habitual
+            mental tracks you find yourself stuck in. This observer perspective is transformative.
+          </p>
+        </div>
+
+        <div className="my-16 flex justify-center">
+          <video
+            controls
+            className="w-full max-w-[700px] rounded-[24px] shadow-xl border-2 border-white"
+            src="https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801133/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801117511.mp4"
+          />
+        </div>
+
+        <p className="text-lg  text-[#4B5563] leading-relaxed font-serif text-center max-w-[800px] mx-auto mb-16">
+          For EMDR work, this skill is invaluable. Developing the ability to anchor yourself in the present
+          while observing your internal experience creates a stable base from which to safely explore and
+          process challenging material. Regular practice—even just a few minutes daily—builds this
+          foundational capacity.
+        </p>
+
+        <div className="mt-20 flex justify-center pb-8">
+          <button
+            onClick={onClose}
+            className="px-16 py-5 bg-[#4A7C59] text-white rounded-full font-semibold text-lg hover:bg-[#3d6649] transition-all transform hover:scale-105 shadow-2xl hover:shadow-[#4A7C59]/30"
+          >
+            Complete Reading & Continue
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 export default function ThoughtsPage() {
   const { user, token } = useStoredAuth();
@@ -181,6 +293,10 @@ export default function ThoughtsPage() {
   const [modalVideoCurrentTime, setModalVideoCurrentTime] = useState(0);
   const [modalVideoDuration, setModalVideoDuration] = useState(0);
   const [lastAllowedVideoTime, setLastAllowedVideoTime] = useState(0);
+  const [showMindfulnessArticle, setShowMindfulnessArticle] = useState(false);
+
+  const isAkane = user?.name?.toLowerCase().includes("akane") ||
+    user?.email?.toLowerCase().includes("akane");
 
   const thoughtsUserKey = getThoughtsUserKey({ user, token });
   const audioStorageKey = buildThoughtsStorageKey(
@@ -206,7 +322,7 @@ export default function ThoughtsPage() {
     currentUserProgress;
 
   const isCountingThoughtsCompleted = isThankingMindUnlocked;
-  const isMindfulnessUnlocked = watchedVideoIds.length === thankingMindVideos.length;
+  const isMindfulnessUnlocked = watchedVideoIds.length === thankingMindVideos.length || isAkane;
   const isMindfulnessCompleted =
     watchedMindfulnessVideoIds.length === mindfulnessVideos.length;
 
@@ -304,7 +420,7 @@ export default function ThoughtsPage() {
         tag: isMindfulnessCompleted
           ? "Completed"
           : isMindfulnessUnlocked
-            ? "Video Series"
+            ? "New Module"
             : item.tag,
         status: isMindfulnessUnlocked ? "active" : "locked",
         state: isMindfulnessCompleted
@@ -464,17 +580,15 @@ export default function ThoughtsPage() {
     }
 
     if (item.id === 4 && item.status === "active") {
-      resetModalVideoState();
-      setActiveVideoModal("mindfulness");
-      setSelectedMindfulnessVideoId(
-        getActiveVideoId(
-          mindfulnessVideos,
-          watchedMindfulnessVideoIds,
-          selectedMindfulnessVideoId
-        )
-      );
+      setShowMindfulnessArticle(true);
     }
   };
+
+  if (showMindfulnessArticle) {
+    return (
+      <MindfulnessArticle onClose={() => setShowMindfulnessArticle(false)} />
+    );
+  }
 
   return (
     <div className="rounded-3xl border border-white/20 bg-[#FFF8F066]/50 px-6 py-12 shadow-2xl">
