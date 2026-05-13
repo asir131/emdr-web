@@ -291,7 +291,7 @@ const questionFlows = {
     "PFS_RATING",
     "Are there any thoughts that go with this positive feeling? What does your mind tell you when you experience it?",
     "Where does this positive feeling sit in your body? (e.g., chest, head, stomach, all over)",
-    "Take a moment to visualize this positive feeling. What color, shape, or image comes to mind when you focus on it?",
+    "Take a moment to visualise this positive feeling. What colour, shape, or image comes to mind when you focus on it?",
     "BLS_INSTRUCTION",
   ],
 };

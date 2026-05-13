@@ -47,14 +47,14 @@ const HowThisActually = ({ desktopImage = "/homeImage/image1.png" }) => {
         >
           How This Actually Works
         </motion.h2>
-        <motion.h2
+        <motion.p
           initial={{ opacity: 0, y: -20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-xl md:text-xl font-serif text-center text-[#4A7C59] mb-5"
+          className="text-lg md:text-xl font-serif text-center text-[#4A7C59] mb-5"
         >
-          How This Actually Works
-        </motion.h2>
+          A structured, step-by-step journey to healing at your own pace
+        </motion.p>
 
         {/* Steps Grid */}
         <div className=" md:flex gap-12 mb-20">

@@ -23,7 +23,7 @@ const phases = [
   },
   {
     id: 4,
-    title: "Phase 4: Desensitization",
+    title: "Phase 4: Desensitisation",
     desc: "Processing the memory using bilateral stimulation",
     side: "left",
   },

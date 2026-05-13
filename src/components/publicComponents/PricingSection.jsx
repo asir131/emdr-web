@@ -29,7 +29,7 @@ const PricingSection = ({ compact = false, activePlanName }) => {
             const isFree = (hasPrice && Number(plan.price) === 0) || normalizedPlan === "free";
             return {
               id: plan._id,
-              name: plan.name,
+              name: isFree ? "Community Access" : plan.name,
               price: isFree ? "Free" : `${plan.currency}${plan.price}`,
               amount: plan.price,
               currency: plan.currency,
@@ -122,16 +122,16 @@ const PricingSection = ({ compact = false, activePlanName }) => {
             <h3 className="text-2xl font-semibold text-[#101828] mb-1">
               {plan.name}
             </h3>
-            <div className="flex items-baseline gap-0.5">
-              <span className="text-3xl font-serif text-[#101828]">
-                {plan.price}
-              </span>
-              {plan.price !== "Free" && (
+            {!plan.isFree && (
+              <div className="flex items-baseline gap-0.5">
+                <span className="text-3xl font-serif text-[#101828]">
+                  {plan.price}
+                </span>
                 <span className="text-[#101828] text-[12px] font-medium">
                   {plan.duration}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             <p className="text-[#4A7C59] text-[14px] mt-2 leading-snug min-h-[32px]">
               {plan.subText}
             </p>

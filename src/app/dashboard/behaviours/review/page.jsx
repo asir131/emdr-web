@@ -172,7 +172,7 @@ const loadWeeklyChatHistory = (planId) => {
   try {
     return JSON.parse(
       window.localStorage.getItem(getWeeklyChatHistoryStorageKey(planId)) ||
-        "{}",
+      "{}",
     );
   } catch {
     return {};
@@ -867,12 +867,12 @@ export default function WeeklyReviewPage() {
         const nextHierarchy =
           Array.isArray(plan?.hierarchy) && plan.hierarchy.length > 0
             ? plan.hierarchy.map((step, index) =>
-                normalizeHierarchyStep(
-                  step,
-                  index,
-                  reviewStepsByIndex.get(index),
-                ),
-              )
+              normalizeHierarchyStep(
+                step,
+                index,
+                reviewStepsByIndex.get(index),
+              ),
+            )
             : INITIAL_HIERARCHY;
         const serverWeek =
           testWeekFromQuery !== null
@@ -1403,15 +1403,15 @@ export default function WeeklyReviewPage() {
               <div className="text-[13px] font-bold text-[#4A7C59]">
                 {hierarchy.reduce((sum, s) => sum + s.originalSuds, 0) > 0
                   ? Math.round(
-                      (hierarchy.reduce((sum, s) => {
-                        if (s.currentSuds !== null) {
-                          return sum + Math.max(0, s.originalSuds - s.currentSuds);
-                        }
-                        return sum;
-                      }, 0) /
-                        hierarchy.reduce((sum, s) => sum + s.originalSuds, 0)) *
-                        100,
-                    )
+                    (hierarchy.reduce((sum, s) => {
+                      if (s.currentSuds !== null) {
+                        return sum + Math.max(0, s.originalSuds - s.currentSuds);
+                      }
+                      return sum;
+                    }, 0) /
+                      hierarchy.reduce((sum, s) => sum + s.originalSuds, 0)) *
+                    100,
+                  )
                   : 0}
                 %
               </div>
@@ -1451,18 +1451,17 @@ export default function WeeklyReviewPage() {
                 <div
                   className="h-full rounded-full bg-[#4A7C59] transition-all duration-500 ease-out"
                   style={{
-                    width: `${
-                      hierarchy.reduce((sum, s) => sum + s.originalSuds, 0) > 0
+                    width: `${hierarchy.reduce((sum, s) => sum + s.originalSuds, 0) > 0
                         ? (hierarchy.reduce((sum, s) => {
-                            if (s.currentSuds !== null) {
-                              return sum + Math.max(0, s.originalSuds - s.currentSuds);
-                            }
-                            return sum;
-                          }, 0) /
-                            hierarchy.reduce((sum, s) => sum + s.originalSuds, 0)) *
-                          100
+                          if (s.currentSuds !== null) {
+                            return sum + Math.max(0, s.originalSuds - s.currentSuds);
+                          }
+                          return sum;
+                        }, 0) /
+                          hierarchy.reduce((sum, s) => sum + s.originalSuds, 0)) *
+                        100
                         : 0
-                    }%`,
+                      }%`,
                   }}
                 />
               </div>

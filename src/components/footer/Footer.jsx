@@ -42,7 +42,7 @@ const Footer = () => {
               />
             </div>
             <p className="text-gray-600 leading-relaxed text-sm md:text-base max-w-sm">
-              EMDR (Eye Movement Desensitization and Reprocessing) therapy is a
+              EMDR (Eye Movement Desensitisation and Reprocessing) therapy is a
               psychotherapy technique used to help people process and recover
               from traumatic memories or distressing experiences. It involves
               guided eye movements or other bilateral stimulation to reduce the

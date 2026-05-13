@@ -587,7 +587,7 @@ export default function ConsentPage() {
                         <h2 className="section-title">About EMDR Therapy</h2>
                         <div className="info-card">
                             <p>
-                                <strong>Eye Movement Desensitization and Reprocessing (EMDR)</strong> is a psychotherapy treatment recognised by the World Health Organization (WHO) for treating trauma and PTSD. This digital programme combines standard EMDR sessions with Cognitive Behavioural Therapy (CBT) techniques.
+                                <strong>Eye Movement Desensitisation and Reprocessing (EMDR)</strong> is a psychotherapy treatment recognised by the World Health Organization (WHO) for treating trauma and PTSD. This digital programme combines standard EMDR sessions with Cognitive Behavioural Therapy (CBT) techniques.
                             </p>
                             <p style={{ marginTop: "15px" }}>
                                 EMDR uses bilateral stimulation (eye movements, tapping, or auditory tones) to help your brain process troubling memories. The treatment follows eight structured phases and has been shown to be effective for approximately 67% of trauma cases.

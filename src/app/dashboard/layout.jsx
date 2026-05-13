@@ -21,6 +21,8 @@ const bgImages = {
     "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop",
 };
 
+import WelcomeWalkthrough from "@/components/dashboard/WelcomeWalkthrough";
+
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -42,6 +44,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex h-screen w-full relative overflow-hidden">
+      <WelcomeWalkthrough />
       {!isSessionPage && (
         <div className="absolute inset-0 z-0">
           <img

@@ -46,8 +46,16 @@ const ProvenResults = () => {
               viewport={{ once: true }}
               whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(0,0,0,0.05)" }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-[#FBFBFC] p-10 rounded-[30px] border-5 border-[#92B09B] flex flex-col items-center text-center transition-all duration-300"
+              className="relative bg-[#FBFBFC] p-10 rounded-[30px] border-5 border-[#92B09B] flex flex-col items-center text-center transition-all duration-300"
             >
+              {/* ✅ Evidence Checked Badge */}
+              <div className="absolute top-4 right-4 flex items-center gap-1 bg-[#e6f4ea] border border-[#568261] text-[#568261] text-xs font-semibold px-2.5 py-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Evidence Checked
+              </div>
+
               {/* Icon / Image Placeholder */}
               <div className="w-20 h-20  bg-[#fdfaf5] mb-6 flex items-center justify-center overflow-hidden  ">
                 <img 

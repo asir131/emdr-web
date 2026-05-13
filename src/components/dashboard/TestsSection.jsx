@@ -40,7 +40,7 @@ export default function TestsSection() {
               My Tests
             </h2>
             <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
-              Take new assessments or retake standard questionnairess
+              Take new assessments or retake standard questionnaires
             </p>
             <Link href="/dashboard/assessments/activity">
               <button className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200 cursor-pointer">
@@ -85,7 +85,7 @@ export default function TestsSection() {
               My Results
             </h2>
             <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
-              Visualize your heling journey with graphs and historical data
+              Visualise your healing journey with graphs and historical data
               trends.
             </p>
             <Link href="/dashboard/results">

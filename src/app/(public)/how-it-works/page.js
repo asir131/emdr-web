@@ -1,16 +1,27 @@
-import EMDRComparison from "@/components/publicComponents/EMDRComparison";
-import EMDRheroSection from "@/components/publicComponents/EMDRheroSection";
-import EMDRJourney from "@/components/publicComponents/EMDRJourney";
-import EmdrMayBe from "@/components/publicComponents/EmdrMayBe";
-import HowEMDRWorks from "@/components/publicComponents/HowEMDRWorks";
-import NeuroscienceSection from "@/components/publicComponents/NeuroscienceSection";
-import ProvenResults from "@/components/publicComponents/ProvenResults";
-import TraumaHealingSection from "@/components/publicComponents/TraumaHealingSection";
+
+import FAQSection from "@/components/publicComponents/FAQSection";
+import HowThisActually from "@/components/publicComponents/HowThisActually";
+import InKindSection from "@/components/publicComponents/InKindSection";
+import PricingSection from "@/components/publicComponents/PricingSection";
+import ReadytoRewind from "@/components/publicComponents/ReadytoRewind";
+import Therapyshouldn from "@/components/publicComponents/Therapyshouldn";
+import WhatIncluded from "@/components/publicComponents/WhatIncluded ";
 import React from "react";
 
 const Page = () => {
   return (
     <div>
+      <ReadytoRewind></ReadytoRewind>
+      <HowThisActually></HowThisActually>
+      <Therapyshouldn></Therapyshouldn>
+      <WhatIncluded></WhatIncluded>
+      <PricingSection></PricingSection>
+      <InKindSection></InKindSection>
+      <FAQSection></FAQSection>
+
+
+
+      {/* <PricingSection></PricingSection>
       <EMDRheroSection />
       <HowEMDRWorks
       />
@@ -19,7 +30,7 @@ const Page = () => {
       <EMDRJourney />
       <ProvenResults />
       <EMDRComparison />
-      <EmdrMayBe></EmdrMayBe>
+      <EmdrMayBe></EmdrMayBe> */}
     </div>
   );
 };

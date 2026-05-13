@@ -446,6 +446,29 @@ export default function CBTFormulation() {
         </div>
 
         <div className="mx-auto max-w-5xl px-8 py-16">
+          <AnimatePresence>
+            {currentNodeIndex === 0 && !allTimelineComplete && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -50, height: 0, overflow: "hidden", marginBottom: 0 }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+                className="mb-10 bg-white/70 backdrop-blur-md p-8 rounded-3xl shadow-sm border border-white/50"
+              >
+                <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Before we begin</h2>
+                <p className="text-stone-700 text-[16px] leading-relaxed mb-4">
+                  Before the processing work begins, we'd like to build up a picture of you; where you've come from, how you tend to think and feel, and what life has been like up until now.
+                </p>
+                <p className="text-stone-700 text-[16px] leading-relaxed mb-4">
+                  This is called a formulation. Think of it as a map that helps make sense of why certain experiences affect you the way they do and that this is connected to the research. You'll be asked about things like early memories, beliefs you hold about yourself, and how you tend to respond when things get difficult.
+                </p>
+                <p className="text-stone-700 text-[16px] leading-relaxed">
+                  Take your time with it, and don't worry about getting it "right." Honest and approximate is more useful than precise and uncomfortable. The information you fill in here will be used throughout the programme to tailor the work to you. We will start with the here and now.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {optionsError ? (
             <div className="mb-8 rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
               {optionsError}
