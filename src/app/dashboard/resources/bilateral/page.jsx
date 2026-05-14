@@ -1,46 +1,49 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import VisualEnvironmentSelector from "@/components/dashboard/bilateral/VisualEnvironmentSelector";
 import { getBilateralEnvironments } from "@/components/dashboard/bilateral/VisualEnvironmentSelector";
-import VisualIconSelector from "@/components/dashboard/bilateral/VisualIconSelector";
 import { getBilateralIcons } from "@/components/dashboard/bilateral/VisualIconSelector";
-import SoundSelector from "@/components/dashboard/bilateral/SoundSelector";
 import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelector";
-import BilateralSpeedSelector from "@/components/dashboard/bilateral/BilateralSpeedSelector";
-import BilateralDirectionSelector from "@/components/dashboard/bilateral/BilateralDirectionSelector";
-import { Save, Play } from "lucide-react";
+import { Save, Play, MoveHorizontal, MoveVertical, MoveUpRight, MoveDownRight, Music, Check } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
 import { updateSessionProgress, checkSessionAccess } from "@/utils/sessionProgress";
 
 const postBilateralSettings = async ({ baseUrl, token, payload }) => {
   const response = await fetch(`${baseUrl}/api/bilateral/settings`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
   });
   const result = await response.json();
-
-  if (!response.ok || !result?.success) {
-    throw new Error(result?.message || "Failed to save bilateral settings.");
-  }
-
+  if (!response.ok || !result?.success) throw new Error(result?.message || "Failed to save bilateral settings.");
   return result;
 };
+
+const speeds = [
+  { id: "slow",   name: "Slow",   desc: "850ms", icon: "🐢" },
+  { id: "medium", name: "Medium", desc: "600ms", icon: "🍃" },
+  { id: "fast",   name: "Fast",   desc: "400ms", icon: "⚡" },
+];
+
+const directions = [
+  { id: "horizontal",    name: "Horizontal",    Icon: MoveHorizontal },
+  { id: "vertical",      name: "Vertical",      Icon: MoveVertical },
+  { id: "diagonal-up",   name: "Diagonal Up",   Icon: MoveUpRight },
+  { id: "diagonal-down", name: "Diagonal Down", Icon: MoveDownRight },
+];
+
+// Reusable section heading
+const SectionHeading = ({ children }) => (
+  <h2 className="text-sm font-semibold uppercase tracking-widest text-[#0F1912] mb-5 flex items-center gap-2">
+    <span className="w-4 h-px bg-stone-400 inline-block" />
+    {children}
+  </h2>
+);
 
 export default function BilateralSettingsPage() {
   const router = useRouter();
   const { token } = useStoredAuth();
-  const [selections, setSelections] = useState({
-    environment: "",
-    icon: "",
-    sound: "",
-    speed: "medium",
-    direction: "horizontal",
-  });
+  const [selections, setSelections] = useState({ environment: "", icon: "", sound: "", speed: "medium", direction: "horizontal" });
   const [environments, setEnvironments] = useState([]);
   const [icons, setIcons] = useState([]);
   const [sounds, setSounds] = useState([]);
@@ -49,278 +52,290 @@ export default function BilateralSettingsPage() {
   const [saveState, setSaveState] = useState("idle");
   const lastSavedSignatureRef = useRef("");
 
-  const rawBaseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
-  const baseUrl = rawBaseUrl.endsWith("/")
-    ? rawBaseUrl.slice(0, -1)
-    : rawBaseUrl;
+  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+  const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 
-  const updateSelection = (key, value) => {
-    setSelections((prev) => ({ ...prev, [key]: value }));
-  };
+  const updateSelection = (key, value) => setSelections((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
-    const loadMediaOptions = async () => {
-      if (!token) {
-        setIsLoadingMedia(false);
-        return;
-      }
-
+    const load = async () => {
+      if (!token) { setIsLoadingMedia(false); return; }
       try {
         setIsLoadingMedia(true);
-        setSettingsError("");
-
-        const [environmentItems, iconItems, soundItems] = await Promise.all([
+        const [envs, icns, snds] = await Promise.all([
           getBilateralEnvironments(token),
           getBilateralIcons(token),
           getBilateralSounds(token),
         ]);
-
-        setEnvironments(environmentItems);
-        setIcons(iconItems);
-        setSounds(soundItems);
+        setEnvironments(envs);
+        setIcons(icns);
+        setSounds(snds);
+        setSelections((prev) => ({
+          ...prev,
+          environment: prev.environment || envs[0]?.id || "",
+          icon: prev.icon || icns[0]?.id || "",
+          sound: prev.sound || snds[0]?.id || "",
+        }));
       } catch (error) {
-        console.error("Error loading bilateral settings options:", error);
-        setSettingsError(
-          error.message || "Unable to load bilateral settings right now."
-        );
+        setSettingsError(error.message || "Unable to load bilateral settings right now.");
       } finally {
         setIsLoadingMedia(false);
       }
     };
-
-    loadMediaOptions();
+    load();
   }, [token]);
 
-  const selectedEnvironment = environments.find(
-    (item) => item.id === selections.environment
-  );
-  const selectedIcon = icons.find((item) => item.id === selections.icon);
-  const selectedSound = sounds.find((item) => item.id === selections.sound);
-
-  const currentPayload =
-    selectedEnvironment?.image && selectedIcon?.img && selectedSound?.url
-      ? {
-        environmentId: selectedEnvironment.image,
-        iconUrl: selectedIcon.img,
-        soundId: selectedSound.url,
-        direction: selections.direction,
-        speed: selections.speed,
+  useEffect(() => {
+    if (!token || !baseUrl) return;
+    const check = async () => {
+      const activeJourneyId = localStorage.getItem("activeJourneyId");
+      if (activeJourneyId) {
+        const access = await checkSessionAccess({ baseUrl, token, journeyId: activeJourneyId, requiredSession: 6 });
+        if (!access.allowed && access.redirectTo) router.replace(access.redirectTo);
       }
-      : null;
-  const currentPayloadSignature = currentPayload
-    ? JSON.stringify(currentPayload)
-    : "";
+    };
+    check();
+  }, [token, baseUrl, router]);
+
+  const selectedEnvironment = environments.find((i) => i.id === selections.environment);
+  const selectedIcon = icons.find((i) => i.id === selections.icon);
+  const selectedSound = sounds.find((i) => i.id === selections.sound);
+
+  const currentPayload = selectedEnvironment?.image && selectedIcon?.img && selectedSound?.url
+    ? { environmentId: selectedEnvironment.image, iconUrl: selectedIcon.img, soundId: selectedSound.url, direction: selections.direction, speed: selections.speed }
+    : null;
+  const currentPayloadSignature = currentPayload ? JSON.stringify(currentPayload) : "";
 
   const saveSettings = async ({ force = false } = {}) => {
-    if (!currentPayload) {
-      return false;
-    }
-
-    if (!baseUrl) {
-      setSettingsError("Settings service is not configured.");
-      setSaveState("error");
-      return false;
-    }
-
-    if (!token) {
-      setSettingsError("Please sign in again to save your settings.");
-      setSaveState("error");
-      return false;
-    }
-
-    const payloadSignature = currentPayloadSignature;
-
-    if (!force && payloadSignature === lastSavedSignatureRef.current) {
-      return true;
-    }
-
+    if (!currentPayload || !baseUrl || !token) return false;
+    if (!force && currentPayloadSignature === lastSavedSignatureRef.current) return true;
     try {
       setSaveState("saving");
-      setSettingsError("");
-
-      await postBilateralSettings({
-        baseUrl,
-        token,
-        payload: currentPayload,
-      });
-
-      lastSavedSignatureRef.current = payloadSignature;
+      await postBilateralSettings({ baseUrl, token, payload: currentPayload });
+      lastSavedSignatureRef.current = currentPayloadSignature;
       setSaveState("saved");
       return true;
     } catch (error) {
-      console.error("Error saving bilateral settings:", error);
-      setSettingsError(
-        error.message || "Unable to save bilateral settings right now."
-      );
+      setSettingsError(error.message || "Unable to save bilateral settings right now.");
       setSaveState("error");
       return false;
     }
   };
 
-  useEffect(() => {
-    if (!token || !baseUrl) return;
-
-    const runAccessCheck = async () => {
-      const activeJourneyId = localStorage.getItem("activeJourneyId");
-      if (activeJourneyId) {
-        const access = await checkSessionAccess({
-          baseUrl,
-          token,
-          journeyId: activeJourneyId,
-          requiredSession: 6,
-        });
-
-        if (!access.allowed && access.redirectTo) {
-          router.replace(access.redirectTo);
-        }
-      }
-    };
-
-    runAccessCheck();
-  }, [token, baseUrl, router]);
-
-  useEffect(() => {
-    if (baseUrl && token && !isLoadingMedia) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      if (currentPayloadSignature === lastSavedSignatureRef.current) {
-        return;
-      }
-
-      const payload = JSON.parse(currentPayloadSignature);
-
-      postBilateralSettings({
-        baseUrl,
-        token,
-        payload,
-      })
-        .then(() => {
-          lastSavedSignatureRef.current = currentPayloadSignature;
-          setSaveState("saved");
-          setSettingsError("");
-        })
-        .catch((error) => {
-          console.error("Error saving bilateral settings:", error);
-          setSettingsError(
-            error.message || "Unable to save bilateral settings right now."
-          );
-          setSaveState("error");
-        });
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [baseUrl, currentPayloadSignature, isLoadingMedia, token]);
-
   const handleBeginSession = async () => {
-    if (!selections.environment || !selections.icon || !selections.sound) {
-      return;
-    }
-
+    if (!selections.environment || !selections.icon || !selections.sound) return;
     const activeJourneyId = localStorage.getItem("activeJourneyId");
     if (activeJourneyId && token && baseUrl) {
-      // Update sessions 6, 7, 8, 9, and 10 together as requested
-      const sessionsToUpdate = [6, 7, 8, 9, 10];
       try {
-        await Promise.all(
-          sessionsToUpdate.map((num) =>
-            updateSessionProgress({
-              baseUrl,
-              token,
-              journeyId: activeJourneyId,
-              compledSession: num,
-            })
-          )
-        );
-      } catch (error) {
-        console.error("Error updating bulk session progress:", error);
-      }
+        await Promise.all([6,7,8,9,10].map((n) => updateSessionProgress({ baseUrl, token, journeyId: activeJourneyId, compledSession: n })));
+      } catch (e) { console.error(e); }
     }
-
     const params = new URLSearchParams(selections);
     router.push(`/dashboard/resources/bilateral/session?${params.toString()}`);
   };
 
-  const handleSaveSettings = async () => {
-    await saveSettings({ force: true });
-  };
-
   return (
-    <div className="min-h-screen relative bg-fixed bg-center">
-      {/* Background Overlay */}
-      <div className="absolute inset-0 bg-white/10 backdrop-blur-sm pointer-events-none rounded-2xl"></div>
+    <div className="min-h-screen relative font-serif">
+      <style>{`
+        .bilateral-title {
+          background: linear-gradient(270deg, #5a5550, #7a9a6a, #5a756d, #9a8a6a, #5a5550);
+          background-size: 300% 300%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: gradientShift 5s ease infinite;
+        }
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+      <div className="absolute inset-0 bg-white/10 backdrop-blur-sm pointer-events-none rounded-2xl" />
 
-      <div className="relative z-10 py-12 px-6">
+      <div className="relative z-10 py-8 px-4 w-full">
+        {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-5xl font-serif text-[#0F1912] mb-3">
+          <p className="text-xs tracking-[3px] uppercase text-stone-500 mb-2">The UK InKind Psychology Clinic</p>
+          <h1 className="text-4xl font-serif mb-2 italic bilateral-title">
             Bilateral Stimulation
           </h1>
-          <p className="text-stone-700 font-serif opacity-80 italic">
-            Customise your calming experience
-          </p>
+          <p className="text-base text-[#7A7A7A] italic">Customise your calming experience</p>
         </div>
 
-        <div className="space-y-6">
-          {/* Top Row: Environment Selector */}
-          <VisualEnvironmentSelector
-            selectedId={selections.environment}
-            onSelect={(id) => updateSelection("environment", id)}
-          />
-
-          {/* Middle Row: Icons and Sounds */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <VisualIconSelector
-              selectedId={selections.icon}
-              onSelect={(id) => updateSelection("icon", id)}
-            />
-            <SoundSelector
-              selectedId={selections.sound}
-              onSelect={(id) => updateSelection("sound", id)}
-            />
+        <div className="space-y-5">
+          {/* Scene — full width */}
+          <div className="bg-white/65 backdrop-blur-md rounded-2xl p-6 shadow-md border border-white/60">
+            <SectionHeading>Scene</SectionHeading>
+            {isLoadingMedia ? (
+              <div className="py-8 text-center text-stone-500">Loading scenes...</div>
+            ) : environments.length === 0 ? (
+              <div className="py-8 text-center text-stone-500">No scenes found.</div>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {environments.map((env) => (
+                  <div
+                    key={env.id}
+                    onClick={() => updateSelection("environment", env.id)}
+                    className={`relative aspect-[16/11] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                      selections.environment === env.id
+                        ? "ring-2 ring-[#7a9a6a] shadow-md"
+                        : "opacity-80 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={env.image} alt={env.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-x-0 bottom-0 py-2 px-1 bg-gradient-to-t from-black/60 to-transparent text-center">
+                      <span className="text-white text-xs italic">{env.name}</span>
+                    </div>
+                    {selections.environment === env.id && (
+                      <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-[#7a9a6a] rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Bottom Row: Speed and Direction */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <BilateralSpeedSelector
-              selectedId={selections.speed}
-              onSelect={(id) => updateSelection("speed", id)}
-            />
-            <BilateralDirectionSelector
-              selectedId={selections.direction}
-              onSelect={(id) => updateSelection("direction", id)}
-            />
+          {/* Visual + Sound */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Visual (Icons) */}
+            <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
+              <SectionHeading>Visual</SectionHeading>
+              {isLoadingMedia ? (
+                <div className="py-8 text-center text-stone-500">Loading visuals...</div>
+              ) : icons.length === 0 ? (
+                <div className="py-8 text-center text-stone-500">No visuals found.</div>
+              ) : (
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                  {icons.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => updateSelection("icon", item.id)}
+                      className={`aspect-square rounded-xl cursor-pointer flex flex-col items-center justify-center gap-2 p-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                        selections.icon === item.id
+                          ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
+                          : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                      }`}
+                    >
+                      <img src={item.img} alt={item.name} className="w-10 h-10 object-contain" />
+                      <span className="text-xs text-stone-600 text-center leading-tight">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sound */}
+            <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
+              <SectionHeading>Sound</SectionHeading>
+              {isLoadingMedia ? (
+                <div className="py-8 text-center text-stone-500">Loading sounds...</div>
+              ) : sounds.length === 0 ? (
+                <div className="py-8 text-center text-stone-500">No sounds found.</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {sounds.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => updateSelection("sound", item.id)}
+                      className={`rounded-xl cursor-pointer flex items-center gap-3 px-4 py-3.5 transition-all duration-200 ${
+                        selections.sound === item.id
+                          ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
+                          : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                      }`}
+                    >
+                      <Music className={`w-4 h-4 flex-shrink-0 ${selections.sound === item.id ? "text-[#7a9a6a]" : "text-stone-400"}`} />
+                      <span className="text-sm text-stone-700 leading-tight">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Speed + Direction — separate cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Speed */}
+            <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
+              <SectionHeading>Speed</SectionHeading>
+              <div className="flex gap-3">
+                {speeds.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => updateSelection("speed", item.id)}
+                    className={`flex-1 rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                      selections.speed === item.id
+                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
+                        : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
+                    }`}
+                  >
+                    <div className="text-3xl mb-2">{item.icon}</div>
+                    <div className={`text-sm italic mb-1 ${selections.speed === item.id ? "text-[#5a7a4a] font-semibold" : "text-stone-600"}`}>{item.name}</div>
+                    <div className="text-xs text-stone-400">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Direction */}
+            <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
+              <SectionHeading>Direction</SectionHeading>
+              <div className="grid grid-cols-4 gap-3">
+                {directions.map(({ id, name, Icon }) => (
+                  <div
+                    key={id}
+                    onClick={() => updateSelection("direction", id)}
+                    className={`rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                      selections.direction === id
+                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
+                        : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
+                    }`}
+                  >
+                    <Icon className={`w-7 h-7 mx-auto mb-2 ${selections.direction === id ? "text-[#7a9a6a]" : "text-stone-400"}`} />
+                    <div className={`text-xs italic leading-tight ${selections.direction === id ? "text-[#5a7a4a] font-semibold" : "text-stone-600"}`}>{name}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col items-center gap-3 pt-2 pb-8">
+            <div className="flex items-center gap-5">
+              <button
+                type="button"
+                onClick={() => saveSettings({ force: true })}
+                disabled={!currentPayload || saveState === "saving"}
+                className="flex items-center gap-2 px-8 py-3.5 bg-white/70 border-2 border-stone-300/80 rounded-full font-serif text-sm text-stone-600 hover:bg-white/90 hover:border-stone-400 transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save size={16} />
+                {saveState === "saving" ? "Saving..." : "Save Settings"}
+              </button>
+
+              {saveState === "saved" && (
+                <span className="text-[#7a9a6a] text-sm italic">✓ Saved</span>
+              )}
+
+              <button
+                onClick={handleBeginSession}
+                disabled={!selections.environment || !selections.icon || !selections.sound}
+                className="flex items-center gap-2 px-14 py-4 rounded-full font-serif text-base text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'linear-gradient(135deg, #7a9a6a 0%, #6a8a5a 100%)', boxShadow: '0 5px 25px rgba(106,138,90,0.35)' }}
+              >
+                <Play size={18} fill="currentColor" />
+                Begin Session
+              </button>
+            </div>
+
+            <p className="text-sm text-stone-400 italic">34 sets · approximately 3 minutes</p>
+
+            {settingsError && (
+              <p className="text-sm text-red-600">{settingsError}</p>
+            )}
           </div>
         </div>
-
-        {/* Footer Buttons */}
-        <div className="mt-12 flex justify-end gap-4">
-          <button
-            type="button"
-            onClick={handleSaveSettings}
-            disabled={!currentPayload || saveState === "saving"}
-            className="flex items-center gap-2 px-8 py-3 bg-white/80 backdrop-blur-md border border-stone-300 rounded-xl font-medium text-stone-700 hover:bg-white transition-all shadow-sm active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Save size={18} />
-            {saveState === "saving" ? "Saving..." : "Save Settings"}
-          </button>
-          <button
-            onClick={handleBeginSession}
-            disabled={!selections.environment || !selections.icon || !selections.sound}
-            className="flex items-center gap-2 px-8 py-3 bg-[#4A7C59] text-white rounded-xl font-medium hover:bg-[#3d6649] transition-all shadow-lg active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Play size={18} fill="currentColor" />
-            Begin Session
-          </button>
-        </div>
-        {settingsError ? (
-          <p className="mt-4 text-right text-sm text-red-600">{settingsError}</p>
-        ) : saveState === "saved" ? (
-          <p className="mt-4 text-right text-sm text-emerald-700">
-            Settings saved successfully.
-          </p>
-        ) : null}
       </div>
     </div>
   );
