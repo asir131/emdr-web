@@ -57,6 +57,30 @@ export default function BilateralSettingsPage() {
 
   const updateSelection = (key, value) => setSelections((prev) => ({ ...prev, [key]: value }));
 
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  const handleSoundClick = (id, url) => {
+    updateSelection("sound", id);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (url) {
+      const audio = new Audio(url);
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio play failed:", e));
+      audioRef.current = audio;
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       if (!token) { setIsLoadingMedia(false); return; }
@@ -162,13 +186,13 @@ export default function BilateralSettingsPage() {
                     key={env.id}
                     onClick={() => updateSelection("environment", env.id)}
                     className={`relative aspect-[16/11] rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${selections.environment === env.id
-                        ? "ring-2 ring-[#7a9a6a] shadow-md"
-                        : "opacity-80 hover:opacity-100"
+                      ? "ring-2 ring-[#7a9a6a] shadow-md"
+                      : "opacity-80 hover:opacity-100"
                       }`}
                   >
                     <img src={env.image} alt={env.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-x-0 bottom-0 py-2 px-1 bg-gradient-to-t from-black/60 to-transparent text-center">
-                      <span className="text-white text-xs italic">{env.name}</span>
+                      {/* <span className="text-white text-xs italic">{env.name}</span> */}
                     </div>
                     {selections.environment === env.id && (
                       <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-[#7a9a6a] rounded-full flex items-center justify-center">
@@ -197,8 +221,8 @@ export default function BilateralSettingsPage() {
                       key={item.id}
                       onClick={() => updateSelection("icon", item.id)}
                       className={`aspect-square rounded-xl cursor-pointer flex flex-col items-center justify-center gap-2 p-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.icon === item.id
-                          ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
-                          : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
+                        : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
                         }`}
                     >
                       <img src={item.img} alt={item.name} className="w-10 h-10 object-contain" />
@@ -217,18 +241,22 @@ export default function BilateralSettingsPage() {
               ) : sounds.length === 0 ? (
                 <div className="py-8 text-center text-stone-500">No sounds found.</div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {sounds.map((item) => (
                     <div
                       key={item.id}
-                      onClick={() => updateSelection("sound", item.id)}
-                      className={`rounded-xl cursor-pointer flex items-center gap-3 px-4 py-3.5 transition-all duration-200 ${selections.sound === item.id
-                          ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
-                          : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                      onClick={() => handleSoundClick(item.id, item.url)}
+                      className={`rounded-xl cursor-pointer flex items-center gap-3 p-3 transition-all duration-200 ${selections.sound === item.id
+                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
+                        : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
                         }`}
                     >
-                      <Music className={`w-4 h-4 flex-shrink-0 ${selections.sound === item.id ? "text-[#7a9a6a]" : "text-stone-400"}`} />
-                      <span className="text-sm text-stone-700 leading-tight">{item.name}</span>
+                      <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" onError={(e) => { e.target.src = `https://picsum.photos/seed/soundfb${item.id}/150/150`; }} />
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-xs font-medium text-stone-700 leading-tight truncate">
+                          {item.name}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -247,8 +275,8 @@ export default function BilateralSettingsPage() {
                     key={item.id}
                     onClick={() => updateSelection("speed", item.id)}
                     className={`flex-1 rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.speed === item.id
-                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
-                        : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
+                      ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
+                      : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
                       }`}
                   >
                     <div className="text-3xl mb-2">{item.icon}</div>
@@ -268,8 +296,8 @@ export default function BilateralSettingsPage() {
                     key={id}
                     onClick={() => updateSelection("direction", id)}
                     className={`rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.direction === id
-                        ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
-                        : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
+                      ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
+                      : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
                       }`}
                   >
                     <Icon className={`w-7 h-7 mx-auto mb-2 ${selections.direction === id ? "text-[#7a9a6a]" : "text-stone-400"}`} />
@@ -308,7 +336,7 @@ export default function BilateralSettingsPage() {
               </button>
             </div>
 
-            <p className="text-sm text-stone-400 italic">34 sets · approximately 3 minutes</p>
+            <p className="text-sm text-stone-800 italic">34 sets · approximately 3 minutes</p>
 
             {settingsError && (
               <p className="text-sm text-red-600">{settingsError}</p>

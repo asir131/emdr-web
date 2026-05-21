@@ -37,7 +37,18 @@ export const getBilateralSounds = async (token) => {
       throw new Error("Failed to fetch sounds.");
     }
 
-    const pageMedia = result?.data?.media || [];
+    let pageMedia = [];
+    if (Array.isArray(result?.data?.media)) {
+      pageMedia = result.data.media;
+    } else if (result?.data?.media && typeof result.data.media === "object") {
+      pageMedia = [
+        ...(result.data.media.images || []),
+        ...(result.data.media.videos || []),
+        ...(result.data.media.musics || []),
+        ...(result.data.media.others || []),
+      ];
+    }
+    
     allMedia.push(...pageMedia);
 
     const totalPages = Number(result?.data?.pagination?.totalPages || 0);
@@ -51,14 +62,23 @@ export const getBilateralSounds = async (token) => {
     .filter(
       (item) =>
         item?.mediaType === "audio" &&
-        item?.status === "active" &&
-        item?.categoryId?.categoryName?.trim()?.toLowerCase() ===
-          BILATERAL_SOUND_CATEGORY_NAME
+        // Some APIs might not return status, or it might be 'active'. We'll relax the status filter just in case, but keep category name.
+        (item?.status === "active" || !item?.status)
+        // Note: Removing the strict category filter if it was preventing items from showing, or keeping it if needed. 
+        // The user's JSON didn't show categoryId on the item itself, it showed category at the root!
     )
+    .filter(item => {
+      // If the item has a categoryId object, check it. Otherwise if it's from the musics array it's already correct.
+      if (item?.categoryId?.categoryName) {
+         return item.categoryId.categoryName.trim().toLowerCase() === BILATERAL_SOUND_CATEGORY_NAME;
+      }
+      return true; // if no category info on item, just accept it since we might be filtering at API level
+    })
     .map((item, index) => ({
       id: item?._id,
       name: item?.name || `Sound ${index + 1}`,
       url: item?.url,
+      image: item?.musicProfile?.url || item?.imageProfile?.url || item?.image || item?.thumbnail || `https://picsum.photos/seed/soundimg${item?._id || index + 1}/150/150`,
     }));
 };
 
@@ -114,18 +134,16 @@ export default function SoundSelector({ selectedId, onSelect }) {
             <div
               key={item.id}
               onClick={() => onSelect(item.id)}
-              className={`flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all ${
-                selectedId === item.id
+              className={`flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all ${selectedId === item.id
                   ? "scale-95 bg-white shadow-md"
                   : "bg-white/50 hover:bg-white/80"
-              }`}
+                }`}
             >
               <div
-                className={`rounded-xl p-2 ${
-                  selectedId === item.id
+                className={`rounded-xl p-2 ${selectedId === item.id
                     ? "bg-teal-600/10 text-teal-600"
                     : "bg-stone-100 text-stone-400"
-                }`}
+                  }`}
               >
                 <Music size={20} />
               </div>

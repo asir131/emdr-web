@@ -6,8 +6,18 @@ import { getBilateralIcons } from "@/components/dashboard/bilateral/VisualIconSe
 import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelector";
 import { useStoredAuth } from "@/redux/authStorage";
 
-const SPEED_MS = { slow: 850, medium: 600, fast: 400 };
+const SPEED_MS = { slow: 600, medium: 400, fast: 250 };
 const TOTAL_SETS = 34;
+
+function speak(text) {
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+}
 
 function SessionContent() {
   const searchParams = useSearchParams();
@@ -18,13 +28,14 @@ function SessionContent() {
   const [icons, setIcons] = useState([]);
   const [sounds, setSounds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // State machine: INTRO -> PLAYING -> CHECK_IN -> SUDS -> CALM_PLACE -> END
+  const [sessionState, setSessionState] = useState("INTRO");
+  const [duration, setDuration] = useState(60); // 60 or 90 minutes
+  
   const [isPaused, setIsPaused] = useState(false);
   const [currentSet, setCurrentSet] = useState(1);
   const [isRight, setIsRight] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [q1Answer, setQ1Answer] = useState(null);
-  const [q2Answer, setQ2Answer] = useState(null);
-  const [showQ2, setShowQ2] = useState(false);
 
   const intervalRef = useRef(null);
   const audioRef = useRef(null);
@@ -37,7 +48,7 @@ function SessionContent() {
   const speed = searchParams.get("speed") || "medium";
   const direction = searchParams.get("direction") || "horizontal";
 
-  const speedMs = SPEED_MS[speed] || 600;
+  const speedMs = SPEED_MS[speed] || 400;
 
   useEffect(() => {
     const load = async () => {
@@ -54,31 +65,35 @@ function SessionContent() {
         console.error(e);
       } finally {
         setIsLoading(false);
+        // Intro Speech
+        speak("The bilateral stimulation will start now. Your roadmap is ready. When you have the image and feeling in mind, press start. When you start, let your mind wander. Your thoughts may go forward or backwards in time.");
       }
     };
     load();
+    
+    return () => {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [token]);
 
   const selectedEnv = environments.find((e) => e.id === envId) || environments[0];
   const selectedIcon = icons.find((i) => i.id === iconId) || icons[0];
   const selectedSound = sounds.find((s) => s.id === soundId) || sounds[0];
 
-  // Audio
+  // Audio - Load as sound effect (no loop)
   useEffect(() => {
     if (!selectedSound?.url) return;
     const audio = new Audio(selectedSound.url);
     audioRef.current = audio;
-    audio.loop = true;
+    audio.loop = false;
     audio.volume = 0.7;
-    if (!isPausedRef.current) audio.play().catch(() => {});
     return () => { audio.pause(); audio.currentTime = 0; audioRef.current = null; };
   }, [selectedSound]);
 
   useEffect(() => {
     isPausedRef.current = isPaused;
-    if (!audioRef.current) return;
-    if (isPaused) audioRef.current.pause();
-    else audioRef.current.play().catch(() => {});
   }, [isPaused]);
 
   // Movement
@@ -95,16 +110,22 @@ function SessionContent() {
   }
 
   useEffect(() => {
-    if (isLoading || isPaused || isComplete) {
+    if (isLoading || isPaused || sessionState !== "PLAYING") {
       clearInterval(intervalRef.current);
       return;
     }
 
-    // Set initial position
-    const initPos = getNextPos(false);
-    posRef.current = initPos;
+    const playSound = () => {
+      if (audioRef.current && !isPausedRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+    };
 
-    intervalRef.current = setInterval(() => {
+    const doMove = (isInitial = false) => {
+      if (!isInitial) {
+        playSound();
+      }
       setIsRight((prev) => {
         const next = !prev;
         posRef.current = getNextPos(next);
@@ -114,38 +135,56 @@ function SessionContent() {
         const next = prev + 1;
         if (next > TOTAL_SETS) {
           clearInterval(intervalRef.current);
-          setIsComplete(true);
+          setSessionState("CHECK_IN");
+          speak("Is it changing and still connected?");
         }
         return next;
       });
-    }, speedMs);
+    };
 
-    return () => clearInterval(intervalRef.current);
-  }, [isLoading, isPaused, isComplete, speedMs, direction]);
+    const timeout = setTimeout(() => {
+      doMove(true);
+      intervalRef.current = setInterval(() => doMove(false), speedMs);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(intervalRef.current);
+    };
+  }, [isLoading, isPaused, sessionState, speedMs, direction]);
+
+  const handleStart = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    setCurrentSet(1);
+    setIsRight(false);
+    setSessionState("PLAYING");
+  };
+
+  const handleCheckIn = (isChanging) => {
+    if (isChanging) {
+      speak("Ok good, go with that, or go with where you left off.");
+      setCurrentSet(1);
+      setIsRight(false);
+      setSessionState("PLAYING");
+    } else {
+      speak("Ok, lets go back to the original image. Without any tapping or eye movement, just take a moment to notice what you see and feel. Rate your negative emotion on a scale of 0 to 10.");
+      setSessionState("SUDS");
+    }
+  };
+
+  const handleSuds = (rating) => {
+    if (rating > 1) {
+      speak("Ok, lets continue with what you noticed about your original image.");
+      setCurrentSet(1);
+      setIsRight(false);
+      setSessionState("PLAYING");
+    } else {
+      speak("Great job. Let's move to phase 2 of EMDR. Please bring up your pincode and spend a minute finding that nice feeling in your body.");
+      setSessionState("CALM_PLACE");
+    }
+  };
 
   const currentPos = getNextPos(isRight);
-
-  const handleQ1 = (ans) => {
-    setQ1Answer(ans);
-    setTimeout(() => setShowQ2(true), 300);
-  };
-
-  const handleQ2 = (ans) => {
-    setQ2Answer(ans);
-    setTimeout(() => {
-      if (q1Answer === "yes" && ans === "yes") {
-        // Restart session
-        setIsComplete(false);
-        setCurrentSet(1);
-        setIsRight(false);
-        setQ1Answer(null);
-        setQ2Answer(null);
-        setShowQ2(false);
-      } else {
-        router.back();
-      }
-    }, 500);
-  };
 
   if (isLoading) {
     return (
@@ -156,57 +195,111 @@ function SessionContent() {
     );
   }
 
-  // ── Completion screen ────────────────────────────────────────────────────
-  if (isComplete) {
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center font-serif z-50"
-        style={{ background: "linear-gradient(135deg, #f8f5f0 0%, #e8efe8 100%)" }}>
-        <p className="text-xl italic text-[#5a5550] mb-12 text-center leading-relaxed">
-          Take a gentle breath.<br />Notice what you experienced.
-        </p>
+  // ── Modals / Overlays ────────────────────────────────────────────────────
+  const renderOverlay = () => {
+    if (sessionState === "INTRO") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Phase 1 of EMDR</h2>
+            <div className="text-lg text-gray-700 space-y-4 mb-8 text-left bg-gray-50 p-6 rounded-2xl border border-gray-100">
+              <p><strong>1.</strong> The bilateral stimulation will start now.</p>
+              <p><strong>2.</strong> Your roadmap is ready. When you have the image and feeling in mind, press start.</p>
+              <p><strong>3.</strong> When you start, let your mind wander – your thoughts may go forward or backwards in time.</p>
+            </div>
+            
+            <div className="mb-8">
+              <p className="text-sm font-medium text-gray-500 mb-3 uppercase tracking-wider">Select Session Duration</p>
+              <div className="flex gap-4 justify-center">
+                <button onClick={() => setDuration(60)} className={`px-6 py-3 rounded-xl border-2 transition-all ${duration === 60 ? 'border-[#4A7C59] bg-[#4A7C59]/10 text-[#4A7C59]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>1 Hour</button>
+                <button onClick={() => setDuration(90)} className={`px-6 py-3 rounded-xl border-2 transition-all ${duration === 90 ? 'border-[#4A7C59] bg-[#4A7C59]/10 text-[#4A7C59]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>1.5 Hours</button>
+              </div>
+            </div>
 
-        {/* Q1 */}
-        <div className="bg-white rounded-2xl px-12 py-8 shadow-lg text-center mb-5 w-full max-w-md">
-          <p className="text-base italic text-[#5a5550] mb-6">Is it changing?</p>
-          <div className="flex gap-4 justify-center">
-            {["Yes", "No"].map((a) => (
-              <button key={a} onClick={() => handleQ1(a.toLowerCase())}
-                className={`px-10 py-3 rounded-full border-2 font-serif text-sm transition-all ${
-                  q1Answer === a.toLowerCase()
-                    ? "border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/18 to-[#6a8a5a]/22 text-[#5a6a50]"
-                    : "border-stone-200 text-[#6a655d] hover:border-stone-300 hover:bg-stone-50"
-                }`}>
-                {a}
-              </button>
-            ))}
+            <button onClick={handleStart} className="w-full py-4 bg-[#4A7C59] text-white text-lg rounded-xl hover:bg-[#3d6849] transition-all">
+              I have the image in mind – Start
+            </button>
           </div>
         </div>
-
-        {/* Q2 */}
-        {showQ2 && (
-          <div className="bg-white rounded-2xl px-12 py-8 shadow-lg text-center w-full max-w-md">
-            <p className="text-base italic text-[#5a5550] mb-6">Is it still connected to your original image?</p>
+      );
+    }
+    
+    if (sessionState === "CHECK_IN") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-md w-full shadow-2xl text-center">
+            <h2 className="text-2xl font-serif text-[#0F1912] mb-8">Is it changing and still connected?</h2>
             <div className="flex gap-4 justify-center">
-              {["Yes", "No"].map((a) => (
-                <button key={a} onClick={() => handleQ2(a.toLowerCase())}
-                  className={`px-10 py-3 rounded-full border-2 font-serif text-sm transition-all ${
-                    q2Answer === a.toLowerCase()
-                      ? "border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/18 to-[#6a8a5a]/22 text-[#5a6a50]"
-                      : "border-stone-200 text-[#6a655d] hover:border-stone-300 hover:bg-stone-50"
-                  }`}>
-                  {a}
+              <button onClick={() => handleCheckIn(true)} className="flex-1 py-4 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all text-lg">Yes</button>
+              <button onClick={() => handleCheckIn(false)} className="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-lg">No</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionState === "SUDS") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
+            <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Rate your negative emotion</h2>
+            <p className="text-gray-600 mb-8">Without any tapping or eye movement, just take a moment to notice what you see and feel. How disturbing is it right now?</p>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {[0,1,2,3,4,5,6,7,8,9,10].map(val => (
+                <button key={val} onClick={() => handleSuds(val)} className="w-12 h-12 rounded-full border-2 border-[#4A7C59] text-[#4A7C59] hover:bg-[#4A7C59] hover:text-white transition-all text-lg font-medium">
+                  {val}
                 </button>
               ))}
             </div>
+            <div className="flex justify-between mt-4 text-sm text-gray-500 px-4">
+              <span>0 = Neutral</span>
+              <span>10 = Extremely</span>
+            </div>
           </div>
-        )}
-      </div>
-    );
-  }
+        </div>
+      );
+    }
+
+    if (sessionState === "CALM_PLACE") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Phase 2: Calm Place</h2>
+            <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+              Please bring up your pincode and spend a minute finding that nice feeling in the body.
+            </p>
+            <button onClick={() => setSessionState("END")} className="w-full py-4 bg-[#4A7C59] text-white text-lg rounded-xl hover:bg-[#3d6849] transition-all">
+              Continue
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionState === "END") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Session Complete</h2>
+            <p className="text-xl text-gray-700 mb-8 leading-relaxed">
+              Please wait 4 days to a week before your next session as the processing continues.
+            </p>
+            <button onClick={() => router.push("/dashboard")} className="w-full py-4 bg-[#4A7C59] text-white text-lg rounded-xl hover:bg-[#3d6849] transition-all">
+              Return to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   // ── BLS session screen ───────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 overflow-hidden font-serif" style={{ zIndex: 100 }}>
+      {renderOverlay()}
+      
       {/* Background */}
       <div className="absolute inset-0">
         {selectedEnv?.image ? (
@@ -220,15 +313,15 @@ function SessionContent() {
       <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 500 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} />
 
-      {/* Moving element — API icon image */}
-      {!isPaused && selectedIcon?.img && (
+      {/* Moving element */}
+      {!isPaused && sessionState === "PLAYING" && selectedIcon?.img && (
         <div
           className="absolute z-30 pointer-events-none"
           style={{
             left: currentPos.left,
             top: currentPos.top || "40%",
             transform: "translateX(-50%) translateY(-50%)",
-            transition: `left ${speedMs}ms cubic-bezier(0.4,0,0.2,1), top ${speedMs}ms cubic-bezier(0.4,0,0.2,1)`,
+            transition: `left ${speedMs}ms linear, top ${speedMs}ms linear`,
             filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.15))",
           }}
         >
@@ -241,7 +334,7 @@ function SessionContent() {
       )}
 
       {/* Reflection */}
-      {!isPaused && selectedIcon?.img && (
+      {!isPaused && sessionState === "PLAYING" && selectedIcon?.img && (
         <div
           className="absolute z-10 pointer-events-none"
           style={{
@@ -250,7 +343,7 @@ function SessionContent() {
             transform: "translateX(-50%) scaleY(-0.35)",
             opacity: 0.2,
             filter: "blur(4px)",
-            transition: `left ${speedMs}ms cubic-bezier(0.4,0,0.2,1)`,
+            transition: `left ${speedMs}ms linear`,
           }}
         >
           <img
@@ -262,7 +355,7 @@ function SessionContent() {
       )}
 
       {/* Header */}
-      <div className="absolute top-7 left-9 z-60 pointer-events-none">
+      <div className="absolute top-7 left-9 z-40 pointer-events-none">
         <p className="text-[9px] tracking-[2px] uppercase text-white/80 mb-1" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.2)" }}>
           The UK InKind Psychology Clinic
         </p>
@@ -272,30 +365,34 @@ function SessionContent() {
       </div>
 
       {/* Counter */}
-      <div className="absolute top-8 right-9 z-60 pointer-events-none text-sm italic text-white/80"
-        style={{ textShadow: "0 1px 5px rgba(0,0,0,0.2)" }}>
-        {Math.min(currentSet, TOTAL_SETS)} of {TOTAL_SETS}
-      </div>
+      {sessionState === "PLAYING" && (
+        <div className="absolute top-8 right-9 z-40 pointer-events-none text-sm italic text-white/80"
+          style={{ textShadow: "0 1px 5px rgba(0,0,0,0.2)" }}>
+          Set {Math.min(currentSet, TOTAL_SETS)} of {TOTAL_SETS}
+        </div>
+      )}
 
       {/* Pause button */}
-      <button
-        onClick={() => setIsPaused((p) => !p)}
-        className="absolute bottom-8 right-9 z-60 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
-        style={{
-          background: "rgba(255,255,255,0.25)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.4)",
-          color: "rgba(255,255,255,0.95)",
-          textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-        }}
-      >
-        {isPaused ? "resume" : "pause"}
-      </button>
+      {sessionState === "PLAYING" && (
+        <button
+          onClick={() => setIsPaused((p) => !p)}
+          className="absolute bottom-8 right-9 z-40 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
+          style={{
+            background: "rgba(255,255,255,0.25)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(255,255,255,0.4)",
+            color: "rgba(255,255,255,0.95)",
+            textShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          }}
+        >
+          {isPaused ? "resume" : "pause"}
+        </button>
+      )}
 
       {/* Exit button */}
       <button
         onClick={() => router.back()}
-        className="absolute bottom-8 left-9 z-60 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
+        className="absolute bottom-8 left-9 z-40 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
         style={{
           background: "rgba(255,255,255,0.25)",
           backdropFilter: "blur(12px)",
