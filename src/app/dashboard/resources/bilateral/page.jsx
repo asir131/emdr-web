@@ -20,9 +20,9 @@ const postBilateralSettings = async ({ baseUrl, token, payload }) => {
 };
 
 const speeds = [
-  { id: "slow", name: "Slow", desc: "850ms", icon: "🐢" },
-  { id: "medium", name: "Medium", desc: "600ms", icon: "🍃" },
-  { id: "fast", name: "Fast", desc: "400ms", icon: "⚡" },
+  { id: "slow", name: "Slow", desc: "2600ms", icon: "🐢" },
+  { id: "medium", name: "Medium", desc: "2000ms", icon: "🍃" },
+  { id: "fast", name: "Fast", desc: "1500ms", icon: "⚡" },
 ];
 
 const directions = [
@@ -220,13 +220,28 @@ export default function BilateralSettingsPage() {
                     <div
                       key={item.id}
                       onClick={() => updateSelection("icon", item.id)}
-                      className={`aspect-square rounded-xl cursor-pointer flex flex-col items-center justify-center gap-2 p-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.icon === item.id
+                      className={`relative aspect-square rounded-xl cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.icon === item.id
                         ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
                         : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
                         }`}
                     >
-                      <img src={item.img} alt={item.name} className="w-10 h-10 object-contain" />
-                      <span className="text-xs text-stone-600 text-center leading-tight">{item.name}</span>
+                      {item.mediaType === "video" ? (
+                        <video
+                          src={item.img}
+                          poster={item.poster || undefined}
+                          muted
+                          autoPlay
+                          loop
+                          playsInline
+                          preload="metadata"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <img src={item.img} alt={item.name} className="h-full w-full object-contain p-4" />
+                      )}
+                      <div className="absolute inset-x-1 bottom-1 rounded-lg bg-white/85 px-1.5 py-1 text-center backdrop-blur-sm">
+                        <span className="block truncate text-[11px] leading-tight text-stone-700">{item.name}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

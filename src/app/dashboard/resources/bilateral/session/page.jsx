@@ -6,7 +6,7 @@ import { getBilateralIcons } from "@/components/dashboard/bilateral/VisualIconSe
 import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelector";
 import { useStoredAuth } from "@/redux/authStorage";
 
-const SPEED_MS = { slow: 600, medium: 400, fast: 250 };
+const SPEED_MS = { slow: 2600, medium: 2000, fast: 1500 };
 const TOTAL_SETS = 34;
 
 function speak(text) {
@@ -17,6 +17,131 @@ function speak(text) {
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
   }
+}
+
+function StimulusVisual({ item, style, ariaHidden = false }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const [fallbackVideoUrl, setFallbackVideoUrl] = useState("");
+  const useVideoFallback = fallbackVideoUrl === item?.img;
+
+  useEffect(() => {
+    if (item?.mediaType !== "video" || !videoRef.current) return;
+
+    videoRef.current.currentTime = 0;
+    videoRef.current.play().catch(() => {});
+  }, [item?.img, item?.mediaType]);
+
+  useEffect(() => {
+    if (item?.mediaType !== "video" || !videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+
+    const drawFrame = () => {
+      if (!context || video.readyState < 2) {
+        animationRef.current = requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      try {
+        const width = canvas.width;
+        const height = canvas.height;
+        context.clearRect(0, 0, width, height);
+        context.drawImage(video, 0, 0, width, height);
+
+        const frame = context.getImageData(0, 0, width, height);
+        const pixels = frame.data;
+        const samplePoints = [
+          0,
+          (width - 1) * 4,
+          (width * (height - 1)) * 4,
+          (width * height - 1) * 4,
+        ];
+        const backgroundSamples = samplePoints.map((point) => ({
+          red: pixels[point],
+          green: pixels[point + 1],
+          blue: pixels[point + 2],
+        }));
+
+        for (let index = 0; index < pixels.length; index += 4) {
+          const red = pixels[index];
+          const green = pixels[index + 1];
+          const blue = pixels[index + 2];
+          const max = Math.max(red, green, blue);
+          const min = Math.min(red, green, blue);
+          const isLightBackground = red > 230 && green > 230 && blue > 230 && max - min < 35;
+          const isCornerBackground = backgroundSamples.some((sample) => {
+            const distance = Math.hypot(red - sample.red, green - sample.green, blue - sample.blue);
+            return distance < 32 && red > 190 && green > 190 && blue > 190;
+          });
+
+          if (isLightBackground || isCornerBackground) {
+            pixels[index + 3] = 0;
+          }
+        }
+
+        context.putImageData(frame, 0, 0);
+      } catch (error) {
+        setFallbackVideoUrl(item.img);
+        return;
+      }
+
+      animationRef.current = requestAnimationFrame(drawFrame);
+    };
+
+    drawFrame();
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [item?.img, item?.mediaType]);
+
+  if (!item?.img) return null;
+
+  if (item.mediaType === "video") {
+    return (
+      <>
+        <video
+          ref={videoRef}
+          key={item.img}
+          src={item.img}
+          poster={item.poster || undefined}
+          muted
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+          crossOrigin="anonymous"
+          aria-hidden
+          style={{ display: useVideoFallback ? "block" : "none", ...style }}
+        />
+        {!useVideoFallback && (
+          <canvas
+            ref={canvasRef}
+            width={220}
+            height={220}
+            aria-hidden={ariaHidden}
+            aria-label={ariaHidden ? undefined : item.name}
+            style={style}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <img
+      src={item.img}
+      alt={ariaHidden ? "" : item.name}
+      aria-hidden={ariaHidden}
+      style={style}
+    />
+  );
 }
 
 function SessionContent() {
@@ -38,8 +163,11 @@ function SessionContent() {
   const [isRight, setIsRight] = useState(false);
 
   const intervalRef = useRef(null);
+  const hitTimeoutRef = useRef(null);
   const audioRef = useRef(null);
   const isPausedRef = useRef(false);
+  const isRightRef = useRef(false);
+  const currentSetRef = useRef(1);
   const posRef = useRef({ left: "15%", top: null });
 
   const envId = searchParams.get("environment") || "";
@@ -48,7 +176,7 @@ function SessionContent() {
   const speed = searchParams.get("speed") || "medium";
   const direction = searchParams.get("direction") || "horizontal";
 
-  const speedMs = SPEED_MS[speed] || 400;
+  const speedMs = SPEED_MS[speed] || 2000;
 
   useEffect(() => {
     const load = async () => {
@@ -81,6 +209,9 @@ function SessionContent() {
   const selectedEnv = environments.find((e) => e.id === envId) || environments[0];
   const selectedIcon = icons.find((i) => i.id === iconId) || icons[0];
   const selectedSound = sounds.find((s) => s.id === soundId) || sounds[0];
+  const stimulusSize = selectedIcon?.mediaType === "video" ? 220 : 90;
+  const stimulusEdgeOffset = `${stimulusSize / 2}px`;
+  const stimulusFarEdge = `calc(100% - ${stimulusSize / 2}px)`;
 
   // Audio - Load as sound effect (no loop)
   useEffect(() => {
@@ -99,62 +230,93 @@ function SessionContent() {
   // Movement
   function getNextPos(goRight) {
     if (direction === "horizontal") {
-      return { left: goRight ? "85%" : "15%", top: "40%" };
+      return { left: goRight ? stimulusFarEdge : stimulusEdgeOffset, top: "40%" };
     } else if (direction === "vertical") {
-      return { left: "50%", top: goRight ? "70%" : "15%" };
+      return { left: "50%", top: goRight ? stimulusFarEdge : stimulusEdgeOffset };
     } else if (direction === "diagonal-up") {
-      return { left: goRight ? "85%" : "15%", top: goRight ? "15%" : "55%" };
+      return { left: goRight ? stimulusFarEdge : stimulusEdgeOffset, top: goRight ? stimulusEdgeOffset : "55%" };
     } else {
-      return { left: goRight ? "85%" : "15%", top: goRight ? "55%" : "15%" };
+      return { left: goRight ? stimulusFarEdge : stimulusEdgeOffset, top: goRight ? "55%" : stimulusEdgeOffset };
     }
+  }
+
+  function getMovementTransform(goRight) {
+    if (direction === "horizontal") {
+      return { rotation: 0, scaleX: goRight ? 1 : -1 };
+    } else if (direction === "vertical") {
+      return { rotation: goRight ? 90 : -90, scaleX: 1 };
+    } else if (direction === "diagonal-up") {
+      return { rotation: goRight ? -35 : 35, scaleX: goRight ? 1 : -1 };
+    }
+
+    return { rotation: goRight ? 35 : -35, scaleX: goRight ? 1 : -1 };
   }
 
   useEffect(() => {
     if (isLoading || isPaused || sessionState !== "PLAYING") {
-      clearInterval(intervalRef.current);
+      clearTimeout(intervalRef.current);
+      clearTimeout(hitTimeoutRef.current);
       return;
     }
 
     const playSound = () => {
       if (audioRef.current && !isPausedRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
+        const hitSound = audioRef.current.cloneNode(true);
+        hitSound.currentTime = 0;
+        hitSound.volume = audioRef.current.volume;
+        if (Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+          const soundDurationMs = audioRef.current.duration * 1000;
+          const targetDurationMs = Math.max(120, speedMs * 0.85);
+          hitSound.playbackRate = Math.min(4, Math.max(0.5, soundDurationMs / targetDurationMs));
+        }
+        hitSound.play().catch(() => {});
       }
     };
 
-    const doMove = (isInitial = false) => {
-      if (!isInitial) {
-        playSound();
+    const finishSideHit = () => {
+      playSound();
+      const next = currentSetRef.current + 1;
+      currentSetRef.current = next;
+      setCurrentSet(next);
+
+      if (next > TOTAL_SETS) {
+        clearTimeout(intervalRef.current);
+        clearTimeout(hitTimeoutRef.current);
+        setSessionState("CHECK_IN");
+        speak("Is it changing and still connected?");
+        return;
       }
+
+      intervalRef.current = setTimeout(doMove, 0);
+    };
+
+    const doMove = () => {
       setIsRight((prev) => {
         const next = !prev;
+        isRightRef.current = next;
         posRef.current = getNextPos(next);
         return next;
       });
-      setCurrentSet((prev) => {
-        const next = prev + 1;
-        if (next > TOTAL_SETS) {
-          clearInterval(intervalRef.current);
-          setSessionState("CHECK_IN");
-          speak("Is it changing and still connected?");
-        }
-        return next;
-      });
+
+      clearTimeout(hitTimeoutRef.current);
+      hitTimeoutRef.current = setTimeout(finishSideHit, speedMs);
     };
 
     const timeout = setTimeout(() => {
-      doMove(true);
-      intervalRef.current = setInterval(() => doMove(false), speedMs);
+      doMove();
     }, 100);
 
     return () => {
       clearTimeout(timeout);
-      clearInterval(intervalRef.current);
+      clearTimeout(intervalRef.current);
+      clearTimeout(hitTimeoutRef.current);
     };
   }, [isLoading, isPaused, sessionState, speedMs, direction]);
 
   const handleStart = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    currentSetRef.current = 1;
+    isRightRef.current = false;
     setCurrentSet(1);
     setIsRight(false);
     setSessionState("PLAYING");
@@ -163,6 +325,8 @@ function SessionContent() {
   const handleCheckIn = (isChanging) => {
     if (isChanging) {
       speak("Ok good, go with that, or go with where you left off.");
+      currentSetRef.current = 1;
+      isRightRef.current = false;
       setCurrentSet(1);
       setIsRight(false);
       setSessionState("PLAYING");
@@ -175,6 +339,8 @@ function SessionContent() {
   const handleSuds = (rating) => {
     if (rating > 1) {
       speak("Ok, lets continue with what you noticed about your original image.");
+      currentSetRef.current = 1;
+      isRightRef.current = false;
       setCurrentSet(1);
       setIsRight(false);
       setSessionState("PLAYING");
@@ -185,6 +351,7 @@ function SessionContent() {
   };
 
   const currentPos = getNextPos(isRight);
+  const movementTransform = getMovementTransform(isRight);
 
   if (isLoading) {
     return (
@@ -320,15 +487,20 @@ function SessionContent() {
           style={{
             left: currentPos.left,
             top: currentPos.top || "40%",
-            transform: "translateX(-50%) translateY(-50%)",
-            transition: `left ${speedMs}ms linear, top ${speedMs}ms linear`,
+            transform: `translateX(-50%) translateY(-50%) rotate(${movementTransform.rotation}deg) scaleX(${movementTransform.scaleX})`,
+            transition: `left ${speedMs}ms linear, top ${speedMs}ms linear, transform 220ms ease`,
             filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.15))",
           }}
         >
-          <img
-            src={selectedIcon.img}
-            alt={selectedIcon.name}
-            style={{ width: 80, height: 80, objectFit: "contain" }}
+          <StimulusVisual
+            item={selectedIcon}
+            style={{
+              width: stimulusSize,
+              height: stimulusSize,
+              borderRadius: 0,
+              objectFit: "contain",
+              overflow: "hidden",
+            }}
           />
         </div>
       )}
@@ -340,16 +512,22 @@ function SessionContent() {
           style={{
             left: currentPos.left,
             bottom: "6%",
-            transform: "translateX(-50%) scaleY(-0.35)",
+            transform: `translateX(-50%) scaleY(-0.35) rotate(${movementTransform.rotation}deg) scaleX(${movementTransform.scaleX})`,
             opacity: 0.2,
             filter: "blur(4px)",
             transition: `left ${speedMs}ms linear`,
           }}
         >
-          <img
-            src={selectedIcon.img}
-            alt=""
-            style={{ width: 80, height: 80, objectFit: "contain" }}
+          <StimulusVisual
+            item={selectedIcon}
+            ariaHidden
+            style={{
+              width: stimulusSize,
+              height: stimulusSize,
+              borderRadius: 0,
+              objectFit: "contain",
+              overflow: "hidden",
+            }}
           />
         </div>
       )}
