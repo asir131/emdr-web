@@ -15,6 +15,10 @@ import {
   IoCallOutline,
   IoRefreshOutline,
   IoCameraOutline,
+  IoHelpCircleOutline,
+  IoChatbubbleEllipsesOutline,
+  IoBookOutline,
+  IoHeartOutline,
 } from "react-icons/io5";
 import { useStoredAuth } from "@/redux/authStorage";
 import {
@@ -104,6 +108,127 @@ const getCompletionLabel = (profile) =>
 
 const getVerificationLabel = (profile) =>
   profile?.isVerified ? "Verified" : "Pending";
+
+const MAX_CHARS = 100;
+
+function SupportForm({ token }) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSend = async () => {
+    if (!subject.trim() || !message.trim()) {
+      setErrorMsg("Please fill out both fields.");
+      return;
+    }
+    
+    setIsSending(true);
+    setSent(false);
+    setErrorMsg("");
+    
+    try {
+      const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+      const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+      
+      const response = await fetch(`${baseUrl}/api/support/tickets`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          category: subject,
+          message: message,
+          priority: "medium",
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result?.success) {
+        setSent(true);
+        setSubject("");
+        setMessage("");
+        setTimeout(() => setSent(false), 3000);
+      } else {
+        let msg = "Failed to submit ticket.";
+        if (typeof result?.message === "string") {
+          msg = result.message;
+        } else if (result?.error && typeof result.error === "object") {
+          msg = result.error.message || msg;
+        } else if (typeof result?.error === "string") {
+          msg = result.error;
+        }
+        setErrorMsg(msg);
+      }
+    } catch (e) {
+      setErrorMsg("Network error. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[40px] border border-stone-100 bg-white/30 p-8 shadow-sm">
+      <h3 className="text-lg font-bold text-stone-800 mb-6">Help & Support</h3>
+
+      <div className="space-y-4 font-sans">
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="Tell us your problem..."
+          className="w-full rounded-[16px] border border-stone-200 bg-white px-5 py-3.5 text-sm text-stone-700 outline-none placeholder:text-stone-400 transition-all focus:border-[#5a7c5a]/30 focus:ring-2 focus:ring-[#5a7c5a]/10"
+        />
+
+        <div className="relative">
+          <textarea
+            value={message}
+            onChange={(e) => {
+              if (e.target.value.length <= MAX_CHARS) setMessage(e.target.value);
+            }}
+            placeholder="e.g. My app is not working..."
+            rows={5}
+            className="w-full resize-none rounded-[16px] border border-stone-200 bg-white px-5 py-4 text-sm text-stone-700 outline-none placeholder:text-stone-400 transition-all focus:border-[#5a7c5a]/30 focus:ring-2 focus:ring-[#5a7c5a]/10"
+          />
+          <div className="flex items-center justify-end gap-1 mt-1 pr-1 text-xs text-stone-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>{message.length}/{MAX_CHARS}</span>
+          </div>
+        </div>
+      </div>
+
+      {errorMsg && (
+        <div className="mt-4 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+          {errorMsg}
+        </div>
+      )}
+
+      {sent && (
+        <div className="mt-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+          Your message has been sent successfully!
+        </div>
+      )}
+
+      <button
+        onClick={handleSend}
+        disabled={isSending || (!subject.trim() || !message.trim())}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-[16px] bg-stone-900 py-3.5 text-sm font-bold text-white transition-all hover:bg-stone-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isSending ? "Sending..." : "Send"}
+        {!isSending && (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { token } = useStoredAuth();
@@ -296,7 +421,7 @@ export default function ProfilePage() {
         <div className="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-center">
           <div>
             <h1 className="bg-gradient-to-r from-stone-800 to-stone-500 bg-clip-text text-2xl font-bold tracking-tight text-transparent">
-              Personal Sanctum
+              Profile workspace
             </h1>
             <p className="mt-1 font-sans text-xs font-bold uppercase tracking-[3px] text-stone-500">
               Connected Profile Workspace
@@ -314,7 +439,7 @@ export default function ProfilePage() {
             </button> */}
 
             <div className="flex gap-1 rounded-[24px] border border-stone-200/50 bg-stone-100 p-1.5">
-              {["profile", "security"].map((tab) => (
+              {["profile", "security", "support"].map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -333,8 +458,10 @@ export default function ProfilePage() {
                   <span className="relative z-10 flex items-center gap-2">
                     {tab === "profile" ? (
                       <IoPersonOutline />
-                    ) : (
+                    ) : tab === "security" ? (
                       <IoShieldCheckmarkOutline />
+                    ) : (
+                      <IoHelpCircleOutline />
                     )}
                     {tab}
                   </span>
@@ -378,7 +505,7 @@ export default function ProfilePage() {
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="group relative overflow-hidden rounded-[40px] border border-stone-100 bg-white p-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.04)] lg:col-span-4"
+              className="group relative overflow-hidden rounded-[40px] border border-stone-100 bg-white/30 p-8 text-center shadow-[0_20px_50px_rgba(0,0,0,0.04)] lg:col-span-4"
             >
               <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-[100px] bg-[#5a7c5a]/5" />
 
@@ -453,7 +580,7 @@ export default function ProfilePage() {
                   </p>
                 </div> */}
                 <div className="col-span-2 mt-2 rounded-[24px] bg-[#5a7c5a]/5 py-4 text-center">
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-600">
                     Subscription Plan
                   </p>
                   <p className="text-base font-bold tracking-tight text-[#5a7c5a]">
@@ -475,7 +602,7 @@ export default function ProfilePage() {
                   >
                     <form
                       onSubmit={handleSubmit}
-                      className="rounded-[40px] border border-stone-100/50 bg-gradient-to-br from-white to-stone-50 p-8 shadow-sm md:col-span-2"
+                      className="rounded-[40px] border border-stone-100/50 bg-gradient-to-br from-white/30 to-stone-50/30 p-8 shadow-sm md:col-span-2"
                     >
                       <div className="mb-8 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
@@ -486,7 +613,7 @@ export default function ProfilePage() {
                             <h3 className="text-xl font-bold text-stone-800">
                               Profile Details
                             </h3>
-                            <p className="mt-1 font-sans text-xs text-stone-400">
+                            <p className="mt-1 font-sans text-xs text-stone-600">
                               Update the information used across your dashboard.
                             </p>
                           </div>
@@ -498,7 +625,7 @@ export default function ProfilePage() {
 
                       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2 md:col-span-2">
-                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Profile Photo
                           </label>
                           <div className="flex flex-col gap-4 rounded-[28px] border border-stone-100 bg-stone-50/70 p-5 md:flex-row md:items-center">
@@ -539,7 +666,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Full Name
                           </label>
                           <input
@@ -553,7 +680,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Phone Number
                           </label>
                           <input
@@ -567,7 +694,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <label className="ml-2 font-sans text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Email Address
                           </label>
                           <input
@@ -675,7 +802,7 @@ export default function ProfilePage() {
                       </div>
                     </div> */}
                   </motion.div>
-                ) : (
+                ) : activeTab === "security" ? (
                   <motion.div
                     key="security-grid"
                     initial={{ opacity: 0, x: 20 }}
@@ -683,7 +810,7 @@ export default function ProfilePage() {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
-                    <div className="relative overflow-hidden rounded-[40px] border border-stone-100 bg-white p-6 shadow-sm">
+                    <div className="relative overflow-hidden rounded-[40px] border border-stone-100 bg-white/30 p-6 shadow-sm">
                       <div className="absolute right-0 top-0 rotate-12 p-8 opacity-[0.03]">
                         <IoFingerPrintOutline size={120} />
                       </div>
@@ -696,7 +823,7 @@ export default function ProfilePage() {
                           <h3 className="text-xl font-bold text-stone-800">
                             Account Email
                           </h3>
-                          <p className="mt-1 font-sans text-xs text-stone-400">
+                          <p className="mt-1 font-sans text-xs text-stone-600">
                             Read-only identity from your account profile
                           </p>
                         </div>
@@ -719,7 +846,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-[40px] border border-stone-100 bg-white p-6 shadow-sm">
+                    <div className="rounded-[40px] border border-stone-100 bg-white/30 p-6 shadow-sm">
                       <div className="mb-8 flex items-center gap-4">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
                           <IoShieldCheckmarkOutline size={24} />
@@ -728,7 +855,7 @@ export default function ProfilePage() {
                           <h3 className="text-xl font-bold text-stone-800">
                             Security Overview
                           </h3>
-                          <p className="mt-1 font-sans text-xs text-stone-400">
+                          <p className="mt-1 font-sans text-xs text-stone-600">
                             This screen is connected only to the profile API for now.
                           </p>
                         </div>
@@ -736,7 +863,7 @@ export default function ProfilePage() {
 
                       <div className="space-y-4 font-sans text-sm">
                         <div className="rounded-[24px] border border-stone-100 bg-stone-50 px-5 py-4">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Current Auth Provider
                           </p>
                           <p className="mt-2 font-semibold capitalize text-stone-700">
@@ -745,7 +872,7 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="rounded-[24px] border border-stone-100 bg-stone-50 px-5 py-4">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-600">
                             Password Management
                           </p>
                           <p className="mt-2 text-stone-600">
@@ -756,6 +883,16 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="support-grid"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-6"
+                  >
+                    <SupportForm token={token} />
                   </motion.div>
                 )}
               </AnimatePresence>

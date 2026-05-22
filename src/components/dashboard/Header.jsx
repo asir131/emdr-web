@@ -55,38 +55,77 @@ export default function Header() {
   const currentUser = getProfilePayload(data) || authUser;
   const avatarUrl = getAvatarUrl(currentUser);
 
-  const notifications = [
-    {
-      id: 1,
-      type: "homework",
-      title: "Homework Assignment",
-      description: "Breathwork practice added for your evening routine.",
-      time: "2 mins ago",
-      unread: true,
-      icon: <IoBookOutline className="w-5 h-5" />,
-      color: "bg-blue-500",
-    },
-    {
-      id: 2,
-      type: "session",
-      title: "Preparation Reminder",
-      description: "Start your pre-session grounding in 45 minutes.",
-      time: "1 hour ago",
-      unread: true,
-      icon: <IoCalendarOutline className="w-5 h-5" />,
-      color: "bg-purple-500",
-    },
-    {
-      id: 3,
-      type: "milestone",
-      title: "New Milestone!",
-      description: "Congratulations! You've maintained consistency for 7 days.",
-      time: "5 hours ago",
-      unread: false,
-      icon: <IoStatsChartOutline className="w-5 h-5" />,
-      color: "bg-amber-500",
-    },
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchNotifications = async () => {
+      try {
+        const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+        const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+
+        const res = await fetch(`${baseUrl}/api/notifications?page=1&limit=20`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const result = await res.json();
+
+        if (result?.status === "success" && result?.data) {
+          const fetchedNotifs = result.data.notifications || [];
+          setUnreadCount(result.data.unreadCount || 0);
+
+          const mapped = fetchedNotifs.map(n => {
+            const date = new Date(n.createdAt);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+
+            let timeAgo = "";
+            if (diffInSeconds < 60) timeAgo = `Just now`;
+            else if (diffInSeconds < 3600) timeAgo = `${Math.floor(diffInSeconds / 60)}m ago`;
+            else if (diffInSeconds < 86400) timeAgo = `${Math.floor(diffInSeconds / 3600)}h ago`;
+            else timeAgo = `${Math.floor(diffInSeconds / 86400)}d ago`;
+
+            let icon = <IoBookOutline className="w-5 h-5" />;
+            let color = "bg-[#5a7c5a]";
+            const type = n?.data?.type || "";
+            const title = n?.title?.toLowerCase() || "";
+
+            if (type.includes("support") || title.includes("support")) {
+              icon = <IoNotificationsOutline className="w-5 h-5" />;
+              color = "bg-blue-500";
+            } else if (type.includes("session") || title.includes("session")) {
+              icon = <IoCalendarOutline className="w-5 h-5" />;
+              color = "bg-purple-500";
+            } else if (type.includes("milestone") || title.includes("milestone")) {
+              icon = <IoStatsChartOutline className="w-5 h-5" />;
+              color = "bg-amber-500";
+            }
+
+            return {
+              id: n._id,
+              type: type || (title.includes("support") ? "support_reply" : "system"),
+              title: n.title,
+              description: n.body,
+              time: timeAgo,
+              unread: !n.isRead,
+              icon,
+              color,
+            };
+          });
+
+          setNotifications(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications", err);
+      }
+    };
+
+    fetchNotifications();
+  }, [token]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -143,8 +182,8 @@ export default function Header() {
                 <path d="M20.6404 5.12C20.6404 3.39687 19.2435 2 17.5204 2C15.7973 2 14.4004 3.39687 14.4004 5.12C14.4004 6.84313 15.7973 8.24 17.5204 8.24C19.2435 8.24 20.6404 6.84313 20.6404 5.12Z" fill="black" fillOpacity="0.05" />
               </svg>
 
-              {/* <AnimatePresence>
-                {notifications.some((n) => n.unread) && (
+              <AnimatePresence>
+                {unreadCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -152,7 +191,7 @@ export default function Header() {
                     className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"
                   />
                 )}
-              </AnimatePresence> */}
+              </AnimatePresence>
             </button>
 
             <AnimatePresence>
@@ -164,9 +203,16 @@ export default function Header() {
                   className="absolute top-full right-0 mt-6 w-[380px] bg-white/95 backdrop-blur-[30px] rounded-[35px] shadow-[0_30px_90px_-20px_rgba(0,0,0,0.25)] border border-white/50 overflow-hidden origin-top-right"
                 >
                   <div className="p-7 bg-stone-50/50 flex items-center justify-between border-b border-stone-100/50">
-                    <h3 className="text-stone-800  text-xl font-semibold">
-                      Notification
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-stone-800 text-xl font-semibold">
+                        Notifications
+                      </h3>
+                      {unreadCount > 0 && (
+                        <span className="bg-[#5a7c5a] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="p-3 max-h-[450px] overflow-y-auto space-y-2">
@@ -180,6 +226,27 @@ export default function Header() {
                           ? "bg-[#5a7c5a]/5"
                           : "bg-transparent hover:bg-stone-50"
                           }`}
+                        onClick={() => {
+                          setSelectedNotification(notification);
+                          setShowNotifications(false);
+
+                          if (notification.unread) {
+                            setNotifications(prev => prev.map(n =>
+                              n.id === notification.id ? { ...n, unread: false } : n
+                            ));
+                            setUnreadCount(prev => Math.max(0, prev - 1));
+
+                            // Attempt to mark as read on server
+                            try {
+                              const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+                              const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+                              fetch(`${baseUrl}/api/notifications/${notification.id}/read`, {
+                                method: "PATCH",
+                                headers: { Authorization: `Bearer ${token}` }
+                              }).catch(() => { });
+                            } catch (e) { }
+                          }
+                        }}
                       >
                         <div className="flex gap-4">
                           <div
@@ -196,7 +263,7 @@ export default function Header() {
                                 {notification.time}
                               </span>
                             </div>
-                            <p className="text-stone-500 text-[11px] leading-relaxed line-clamp-2 italic">
+                            <p className="text-stone-500 text-[11px] leading-relaxed italic line-clamp-2">
                               {notification.description}
                             </p>
                           </div>
@@ -333,6 +400,50 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {/* Notification Modal */}
+      <AnimatePresence>
+        {selectedNotification && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl relative"
+            >
+              <div className={`p-8 pb-6 flex items-start gap-4 border-b border-stone-100 ${selectedNotification.color.replace('500', '50')}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${selectedNotification.color} text-white`}>
+                  {selectedNotification.icon}
+                </div>
+                <div className="pt-1">
+                  <h3 className="text-xl font-bold text-stone-800">{selectedNotification.title}</h3>
+                  <p className="text-sm font-semibold text-stone-500 mt-1">{selectedNotification.time}</p>
+                </div>
+              </div>
+              <div className="p-8">
+                <p className="text-stone-600 text-[15px] leading-relaxed whitespace-pre-wrap">
+                  {selectedNotification.description}
+                </p>
+                <div className="mt-8 flex justify-end gap-3">
+                  {selectedNotification.type === 'support_reply' && (
+                    <Link href="/dashboard/profile" onClick={() => setSelectedNotification(null)}>
+                      <button className="px-5 py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm hover:bg-blue-600 transition-colors shadow-sm shadow-blue-500/20">
+                        View Support Tab
+                      </button>
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => setSelectedNotification(null)}
+                    className="px-5 py-2.5 rounded-xl bg-stone-100 text-stone-700 font-bold text-sm hover:bg-stone-200 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

@@ -10,7 +10,7 @@ export default function MyResources() {
           My Resources
         </h1>
         <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white/50 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
                 <svg
@@ -50,7 +50,7 @@ export default function MyResources() {
               Listen Now
             </Link>
           </div>
-          <Link href="/dashboard/resources/bilateral" className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 block cursor-pointer group">
+          <Link href="/dashboard/resources/bilateral" className="bg-white/50 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300 block cursor-pointer group">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
                 <svg
@@ -93,7 +93,7 @@ export default function MyResources() {
               Listen Now
             </span>
           </Link>
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white/50 backdrop-blur-sm rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
                 <svg

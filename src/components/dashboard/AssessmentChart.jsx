@@ -245,7 +245,7 @@ export default function AssessmentChart() {
         {assessments.map((assessment) => (
           <div
             key={assessment.trackerType}
-            className="rounded-[28px] border border-stone-200/80 bg-[#F8F7F3] p-6 shadow-[0_18px_40px_rgba(28,25,23,0.08)] md:p-8"
+            className="rounded-[28px] border border-stone-200/80 bg-[#F8F7F3]/50 backdrop-blur-md  p-6 shadow-[0_18px_40px_rgba(28,25,23,0.08)] md:p-8"
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <h2 className="font-serif text-[22px] font-normal leading-tight text-stone-900 md:text-[26px]">

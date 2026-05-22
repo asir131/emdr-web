@@ -302,7 +302,7 @@ export default function EMDRSession() {
           )}
 
           {videoEnded && (
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 w-80 animate-in fade-in slide-in-from-right-4 duration-500 text-center">
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 bg-white backdrop-blur-md rounded-2xl shadow-2xl p-6 w-80 animate-in fade-in slide-in-from-right-4 duration-500 text-center">
               <h2 className="text-xl font-serif text-stone-900 mb-4">
                 Video Completed
               </h2>
@@ -330,7 +330,7 @@ export default function EMDRSession() {
                     )}&sessionId=${encodeURIComponent(sessionId)}`
                   );
                 }}
-                className="w-full bg-[#4A7C59] hover:bg-[#3d6649] text-white py-3 rounded-xl font-medium transition-all shadow-lg active:scale-95"
+                className="w-full bg-[#4A7C59] hover:bg-[#3d6649] text-white py-3 rounded-xl font-medium transition-all shadow-lg active:scale-95 cursor-pointer"
               >
                 Proceed to Next Step
               </button>

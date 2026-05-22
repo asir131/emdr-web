@@ -132,8 +132,8 @@ export default function StoryPage() {
   );
 
   return (
-    <div className="min-h-screen rounded-2xl bg-white/50 p-1">
-      <section className="relative overflow-hidden rounded-2xl border border-[#cfd4ca] bg-white/70 p-4 shadow-[0_18px_45px_rgba(41,37,36,0.14)] md:p-6">
+    <div className="min-h-screen rounded-2xl bg-white/30 p-1">
+      <section className="relative overflow-hidden rounded-2xl border border-[#cfd4ca] bg-white/50 backdrop-blur-md p-4 shadow-[0_18px_45px_rgba(41,37,36,0.14)] md:p-6">
         <div className="absolute inset-0 bg-gradient-to-b from-[#d9d3c2]/35 via-transparent to-[#e7e0d2]/20" />
         <div className="relative z-10">
           <h1 className="font-serif text-2xl text-[#2f3027] md:text-3xl">
@@ -141,7 +141,7 @@ export default function StoryPage() {
           </h1>
 
           {isLoading ? (
-            <div className="mt-4 rounded-2xl bg-white/80 px-5 py-8 text-center text-stone-700">
+            <div className="mt-4 rounded-2xl bg-white/50  backdrop-blur-mdpx-5 py-8 text-center text-stone-700">
               Loading calm place exercises...
             </div>
           ) : error ? (
@@ -159,7 +159,7 @@ export default function StoryPage() {
                   <Link
                     key={item.id}
                     href={`/dashboard/resources/story/${item.id}`}
-                    className="flex w-full items-center justify-between rounded-2xl border border-[#bfc8bb] bg-white/90 px-5 py-4 text-left shadow-[0_8px_18px_rgba(53,90,67,0.12)] transition-all hover:bg-white"
+                    className="flex w-full items-center justify-between rounded-2xl border border-[#bfc8bb] bg-white/30 backdrop-blur-md px-5 py-4 text-left shadow-[0_8px_18px_rgba(53,90,67,0.12)] transition-all hover:bg-white/30"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#9fbaa4]">
@@ -193,11 +193,10 @@ export default function StoryPage() {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`h-10 min-w-[40px] rounded-xl border px-3 text-sm font-medium transition-all shadow-sm ${
-                            currentPage === page
-                              ? "border-[#4A7C59] bg-[#4A7C59] text-white"
-                              : "border-[#bfc8bb] bg-white/80 text-[#3e3a36] hover:bg-white"
-                          }`}
+                          className={`h-10 min-w-[40px] rounded-xl border px-3 text-sm font-medium transition-all shadow-sm ${currentPage === page
+                            ? "border-[#4A7C59] bg-[#4A7C59] text-white"
+                            : "border-[#bfc8bb] bg-white/80 text-[#3e3a36] hover:bg-white"
+                            }`}
                         >
                           {page}
                         </button>

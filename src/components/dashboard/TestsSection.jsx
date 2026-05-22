@@ -6,7 +6,7 @@ export default function TestsSection() {
     <div className="w-full py-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
         {/* My Tests Card */}
-        <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+        <div className="bg-white/30 rounded-3xl shadow-lg overflow-hidden">
           {/* Header Image with Clock */}
           <div className="h-48 relative overflow-hidden">
             <img
@@ -39,7 +39,7 @@ export default function TestsSection() {
             <h2 className="text-3xl font-serif text-stone-900 mb-4">
               My Tests
             </h2>
-            <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
+            <p className="text-stone-800 text-[18px] leading-relaxed mb-8">
               Take new assessments or retake standard questionnaires
             </p>
             <Link href="/dashboard/assessments/activity">
@@ -51,7 +51,7 @@ export default function TestsSection() {
         </div>
 
         {/* My Results Card */}
-        <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+        <div className="bg-white/30 rounded-3xl shadow-lg overflow-hidden">
           {/* Header Image with Ocean/Sky */}
           <div className="h-48 relative overflow-hidden">
             <img
@@ -84,7 +84,7 @@ export default function TestsSection() {
             <h2 className="text-3xl font-serif text-stone-900 mb-4">
               My Results
             </h2>
-            <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
+            <p className="text-stone-800 text-[18px] leading-relaxed mb-8">
               Visualise your healing journey with graphs and historical data
               trends.
             </p>

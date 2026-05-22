@@ -6,7 +6,7 @@ export default function AssessmentsPage() {
   const [showIntroModal, setShowIntroModal] = useState(false);
 
   return (
-    <div className="bg-white/40 min-h-screen backdrop-blur-xl rounded-3xl shadow-2xl p-8 lg:p-12 border border-white/20 w-full">
+    <div className="bg-white/20 min-h-screen backdrop-blur-xl rounded-3xl shadow-2xl p-8 lg:p-12 border border-white/20 w-full">
       <div className="w-full h-full">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-serif text-[#0F1912] mb-3">
@@ -19,7 +19,7 @@ export default function AssessmentsPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
           {/* My Tests Card */}
-          <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+          <div className="bg-white/30 backdrop-blur-md rounded-3xl shadow-lg overflow-hidden">
             {/* Header Image with Clock */}
             <div className="h-48 relative overflow-hidden">
               <img
@@ -53,14 +53,14 @@ export default function AssessmentsPage() {
               <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
                 Get personalised guidance and prepare for your EMDR sessions with our intelligent virtual assistant.
               </p>
-              <button 
+              <button
                 onClick={() => setShowIntroModal(true)}
-                className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200">
+                className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200 cursor-pointer">
                 Start now
               </button>
             </div>
           </div>
-          <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+          <div className="bg-white/30 backdrop-blur-md rounded-3xl shadow-lg overflow-hidden">
             <div className="h-48 relative overflow-hidden">
               <img
                 src="/homeImage/image2.png"
@@ -95,7 +95,7 @@ export default function AssessmentsPage() {
               <p className="text-[#7A7A7A] text-[18px] leading-relaxed mb-8">
                 Speak directly with a qualified EMDR therapist to discuss your progress and get professional support.
               </p>
-              <button className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200">
+              <button className="w-full text-[18px] bg-[#4A7C59] hover:bg-[#4a6a4c] text-white font-normal py-4 rounded-xl transition-colors duration-200 cursor-pointer">
                 Book now
               </button>
             </div>
@@ -105,9 +105,9 @@ export default function AssessmentsPage() {
 
       {/* Intro Text Modal */}
       {showIntroModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-lg w-full relative animate-in fade-in zoom-in duration-300">
-            <button 
+        <div className="fixed inset-0 z-50 flex items-center justify-center   p-4">
+          <div className="bg-white/70 backdrop-blur-md rounded-3xl shadow-2xl p-8 max-w-lg w-full relative animate-in fade-in zoom-in duration-300">
+            <button
               onClick={() => setShowIntroModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 p-2 rounded-full transition-colors"
             >

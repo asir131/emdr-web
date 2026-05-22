@@ -146,7 +146,7 @@ export default function RecentActivityPage() {
         {activities.map((activity, index) => {
           const sharedProps = {
             className:
-              "bg-[#E3E6F0] border border-transparent text-[#1A1814] visited:text-[#1A1814] rounded-2xl p-6 flex items-center justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:bg-[#DCE1EE] hover:border-[#C8D0E4] hover:text-[#1A1814] active:translate-y-0 active:bg-[#D4D9E8] active:border-[#BEC8DE] active:text-[#1A1814] transition-all duration-200 cursor-pointer group no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7BED4]",
+              "bg-[#E3E6F0]/30 backdrop-blur-md border border-transparent text-[#1A1814] visited:text-[#1A1814] rounded-2xl p-6 flex items-center justify-between shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:bg-[#DCE1EE] hover:border-[#C8D0E4] hover:text-[#1A1814] active:translate-y-0 active:bg-[#D4D9E8] active:border-[#BEC8DE] active:text-[#1A1814] transition-all duration-200 cursor-pointer group no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B7BED4]",
           };
 
           const content = (

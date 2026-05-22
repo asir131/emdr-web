@@ -32,7 +32,7 @@ export default function ThunderLightningPage() {
         </div>
 
         {/* Content Frame */}
-        <div className="bg-white/20 backdrop-blur-md rounded-[40px] border border-white/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] p-6 md:p-10">
+        <div className="bg-white/50 backdrop-blur-md rounded-[40px] border border-white/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] p-6 md:p-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {videos.map((video, index) => (
               <motion.div
