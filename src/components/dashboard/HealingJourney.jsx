@@ -21,7 +21,7 @@ export default function HealingJourney() {
   const { token } = useStoredAuth();
   const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
   const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
-  
+
   const [tests, setTests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,11 +67,11 @@ export default function HealingJourney() {
 
             const result = await response.json();
             const submissions = Array.isArray(result?.data?.submissions) ? result.data.submissions : [];
-            
+
             return submissions.map(sub => {
               const dateVal = sub.submittedAt || sub.createdAt;
               const dateObj = new Date(dateVal);
-              const formattedDate = !Number.isNaN(dateObj.getTime()) 
+              const formattedDate = !Number.isNaN(dateObj.getTime())
                 ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(dateObj)
                 : "Unknown Date";
 
@@ -90,7 +90,7 @@ export default function HealingJourney() {
 
         const allTests = historyResults.flat().filter(t => t.dateValue);
         allTests.sort((a, b) => new Date(b.dateValue).getTime() - new Date(a.dateValue).getTime());
-        
+
         setTests(allTests.slice(0, 5));
       } catch (error) {
         console.error("Failed to load test history:", error);
@@ -113,7 +113,7 @@ export default function HealingJourney() {
               <h1 className="text-3xl lg:text-4xl font-serif text-[#0F172B] mb-2">
                 My Tests
               </h1>
-              <p className="text-[#45556C] text-base">
+              <p className="text-stone-900 text-base">
                 Recent assessment scores and dates
               </p>
             </div>
@@ -132,9 +132,8 @@ export default function HealingJourney() {
                   {/* Timeline Dot and Line */}
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-3 h-3 rounded-full ${
-                        test.color === "teal" ? "bg-teal-600" : "bg-blue-600"
-                      } flex-shrink-0 mt-2`}
+                      className={`w-3 h-3 rounded-full ${test.color === "teal" ? "bg-teal-600" : "bg-blue-600"
+                        } flex-shrink-0 mt-2`}
                     ></div>
                     {index < tests.length - 1 && (
                       <div className="w-0.5 h-full bg-stone-300 mt-2"></div>
@@ -149,7 +148,7 @@ export default function HealingJourney() {
                     <h3 className="text-xl font-semibold text-[#0F172B] mb-1">
                       {test.title}
                     </h3>
-                    <p className="text-[#45556C] text-sm">
+                    <p className="text-stone-900 text-sm">
                       {test.description}
                     </p>
                   </div>
