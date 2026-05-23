@@ -189,8 +189,12 @@ export default function AssessmentChart() {
           historyResults.forEach(({ trackerType, submissions }) => {
             if (!nextCharts[trackerType]) return;
 
-            const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-            const dayData = days.map(day => ({ label: day, value: null }));
+            const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const dayData = days.map(day => ({
+              label: day,
+              value: 0,
+              submittedAt: null,
+            }));
 
             // Map submissions to the correct weekday slot
             // We'll take the most recent submission for each day of the current week (or last 7 days)
@@ -198,14 +202,17 @@ export default function AssessmentChart() {
               const date = new Date(submission?.submittedAt || submission?.createdAt);
               if (Number.isNaN(date.getTime())) return;
 
-              // getDay() returns 0 for Sunday, 1 for Monday...
-              // We want 0 for Monday, 6 for Sunday
-              let dayIndex = date.getDay() - 1;
-              if (dayIndex === -1) dayIndex = 6; // Sunday
+              const dayIndex = date.getDay();
+              const existingDate = dayData[dayIndex].submittedAt
+                ? new Date(dayData[dayIndex].submittedAt)
+                : null;
 
-              // Only fill if it's empty (taking the latest one since history is usually desc)
-              if (dayData[dayIndex].value === null) {
-                dayData[dayIndex].value = submission?.totalScore ?? 0;
+              if (!existingDate || date > existingDate) {
+                dayData[dayIndex] = {
+                  label: days[dayIndex],
+                  value: submission?.totalScore ?? 0,
+                  submittedAt: submission?.submittedAt || submission?.createdAt,
+                };
               }
             });
 

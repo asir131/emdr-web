@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import AssessmentChart from "@/components/dashboard/AssessmentChart";
+import SubscriptionAssessmentHistoryChart from "@/components/dashboard/SubscriptionAssessmentHistoryChart";
 
 export default function ResultsPage() {
   return (
@@ -11,6 +12,7 @@ export default function ResultsPage() {
 
       <div className="flex flex-col gap-10 mt-8">
         <AssessmentChart></AssessmentChart> 
+        <SubscriptionAssessmentHistoryChart />
        
       </div>
     </div>

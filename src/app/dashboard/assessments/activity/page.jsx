@@ -2,9 +2,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import SubscriptionAssessmentResultPage, {
+  subscriptionAssessmentCards,
+} from "@/components/dashboard/SubscriptionAssessmentResultPage";
 
 export default function RecentActivityPage() {
   const [anxietyConfig, setAnxietyConfig] = useState(null);
+  const [activeSubscriptionAssessment, setActiveSubscriptionAssessment] =
+    useState("");
   const rawBaseUrl =
     process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
   const baseUrl = rawBaseUrl.endsWith("/")
@@ -239,6 +244,62 @@ export default function RecentActivityPage() {
           </div>
         </Link>
       </div>
+
+      <div className="mt-10 rounded-3xl border border-white/30 bg-[#F8F7F3]/70 p-6 shadow-lg backdrop-blur-md lg:p-8">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#7A7A7A]">
+              Subscription Assessment
+            </p>
+            <h2 className="font-serif text-2xl text-[#1A1814]">
+              Initial Questionnaire Pages
+            </h2>
+          </div>
+          <span className="text-sm text-[#7A7A7A]">
+            PHQ-9, GAD-7 and DES-II
+          </span>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {subscriptionAssessmentCards.map((item) => (
+            <button
+              key={item.slug}
+              type="button"
+              onClick={() => setActiveSubscriptionAssessment(item.slug)}
+              className={`group rounded-2xl border p-5 text-left text-[#1A1814] no-underline shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md ${
+                activeSubscriptionAssessment === item.slug
+                  ? "border-stone-400 bg-white/85"
+                  : "border-stone-200/70 bg-white/55"
+              }`}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">
+                  {item.label}
+                </span>
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+              </div>
+              <h3 className="font-serif text-xl text-stone-900">
+                {item.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-stone-500">
+                Answer questions and view the chart below.
+              </p>
+              <div className="mt-5 text-sm font-medium text-stone-700 group-hover:text-stone-950">
+                Open below →
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeSubscriptionAssessment ? (
+        <div className="mt-8">
+          <SubscriptionAssessmentResultPage type={activeSubscriptionAssessment} />
+        </div>
+      ) : null}
     </div>
   );
 }
