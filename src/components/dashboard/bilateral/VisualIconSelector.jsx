@@ -73,9 +73,10 @@ export const getBilateralIcons = async (token) => {
     .map((item, index) => ({
       id: item?._id,
       name: item?.name || `Visual ${index + 1}`,
-      img: item?.url,
+      img: item?.videoProfile?.url || item?.url,
       mediaType: item?.mediaType,
-      poster: item?.videoProfile?.url || item?.imageProfile?.url || null,
+      poster: item?.imageProfile?.url || null,
+      defaultFacing: item?.defaultFacing === "left" ? "left" : "right",
     }));
 };
 

@@ -22,6 +22,7 @@ import { useLogoutMutation } from "@/redux/features/login";
 import { useStoredAuth } from "@/redux/authStorage";
 import { useGetProfileQuery } from "@/redux/features/profile";
 import { selectCurrentUser } from "@/redux/slices/authSlice";
+import { getApiHeaders } from "@/utils/apiHeaders";
 
 const getProfilePayload = (response) => response?.data ?? response ?? null;
 
@@ -68,9 +69,9 @@ export default function Header() {
         const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 
         const res = await fetch(`${baseUrl}/api/notifications?page=1&limit=20`, {
-          headers: {
+          headers: getApiHeaders({
             Authorization: `Bearer ${token}`
-          }
+          })
         });
         const result = await res.json();
 
@@ -242,7 +243,7 @@ export default function Header() {
                               const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
                               fetch(`${baseUrl}/api/notifications/${notification.id}/read`, {
                                 method: "PATCH",
-                                headers: { Authorization: `Bearer ${token}` }
+                                headers: getApiHeaders({ Authorization: `Bearer ${token}` })
                               }).catch(() => { });
                             } catch (e) { }
                           }

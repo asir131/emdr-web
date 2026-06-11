@@ -1,3 +1,5 @@
+import { getApiHeaders } from "@/utils/apiHeaders";
+
 /**
  * Updates the session progress for a given journey.
  * 
@@ -23,10 +25,10 @@ export const updateSessionProgress = async ({
   try {
     const response = await fetch(`${baseUrl}/api/session-progress/update`, {
       method: "POST",
-      headers: {
+      headers: getApiHeaders({
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-      },
+      }),
       body: JSON.stringify({
         journeyId,
         totalSession,
@@ -63,9 +65,9 @@ export const checkSessionAccess = async ({
   try {
     const response = await fetch(`${baseUrl}/api/session-progress/${journeyId}`, {
       cache: "no-store",
-      headers: {
+      headers: getApiHeaders({
         Authorization: `Bearer ${token}`,
-      },
+      }),
     });
     const result = await response.json();
 

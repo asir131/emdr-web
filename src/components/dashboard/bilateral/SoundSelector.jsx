@@ -78,6 +78,7 @@ export const getBilateralSounds = async (token) => {
       id: item?._id,
       name: item?.name || `Sound ${index + 1}`,
       url: item?.url,
+      bilateralAudioProfile: item?.bilateralAudioProfile,
       image: item?.musicProfile?.url || item?.imageProfile?.url || item?.image || item?.thumbnail || `https://picsum.photos/seed/soundimg${item?._id || index + 1}/150/150`,
     }));
 };

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Check, Loader2 } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
+import { getApiHeaders } from "@/utils/apiHeaders";
 
 const PricingSection = ({ compact = false, activePlanName }) => {
   const router = useRouter();
@@ -17,6 +18,7 @@ const PricingSection = ({ compact = false, activePlanName }) => {
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BASE_URL}/api/subscriptions/plans`,
+          { headers: getApiHeaders() },
         );
         const result = await response.json();
         if (result.success) {

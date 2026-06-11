@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { clearStoredAuth, getStoredTokens, loadStoredAuth } from "../authStorage";
+import { getApiHeaders } from "@/utils/apiHeaders";
 import {
   logout,
   setLogin,
@@ -58,9 +59,11 @@ const baseQuery = fetchBaseQuery({
     }
 
     headers.set("accept", "application/json");
+    headers.set("ngrok-skip-browser-warning", "true");
 
     return headers;
   },
+  headers: getApiHeaders(),
 });
 
 const baseQueryWithReauth = async (args, api, extraOptions) => {

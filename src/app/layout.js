@@ -32,11 +32,13 @@
 import "./globals.css";
 import ReduxProvider from "@/redux/ReduxProvider";
 import { Toaster } from "react-hot-toast";
+import ApiTunnelHeaders from "@/components/ApiTunnelHeaders";
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="antialiased" suppressHydrationWarning>
+        <ApiTunnelHeaders />
         <ReduxProvider>
           {children}
           <Toaster position="top-center" reverseOrder={false} />

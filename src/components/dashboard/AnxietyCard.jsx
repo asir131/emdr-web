@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
+import { getApiHeaders } from "@/utils/apiHeaders";
 
 const JOURNEYS_PER_PAGE = 3;
 const DEFAULT_PROGRESS = 0;
@@ -106,9 +107,9 @@ export default function AnxietyCard() {
 
         const response = await fetch(`${baseUrl}/api/journeys`, {
           cache: "no-store",
-          headers: {
+          headers: getApiHeaders({
             Authorization: `Bearer ${token}`,
-          },
+          }),
         });
         const result = await response.json();
 
@@ -130,9 +131,9 @@ export default function AnxietyCard() {
                 `${baseUrl}/api/session-progress/${journey._id}`,
                 {
                   cache: "no-store",
-                  headers: {
+                  headers: getApiHeaders({
                     Authorization: `Bearer ${token}`,
-                  },
+                  }),
                 }
               );
               const progressResult = await progressResponse.json();
