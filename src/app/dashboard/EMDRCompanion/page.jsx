@@ -540,6 +540,43 @@ export default function EMDRCompanion() {
     localStorage.setItem("lastEMDRSession", JSON.stringify(sessionData));
   };
 
+  const persistGeneratedRoadmapAudioLocally = (completedSession) => {
+    const roadmapSummaryAudioUrl = completedSession?.roadmapSummaryAudioUrl;
+    const roadmapSummaryText = completedSession?.roadmapSummaryText;
+
+    if (!roadmapSummaryAudioUrl && !roadmapSummaryText) return;
+
+    const currentSession = JSON.parse(localStorage.getItem("lastEMDRSession") || "null");
+    if (!currentSession) return;
+
+    const updatedSession = {
+      ...currentSession,
+      roadmapSummaryAudioUrl: roadmapSummaryAudioUrl || currentSession.roadmapSummaryAudioUrl || "",
+      roadmapSummaryText: roadmapSummaryText || currentSession.roadmapSummaryText || "",
+      summary: {
+        ...(currentSession.summary || {}),
+        roadmapSummaryAudioUrl:
+          roadmapSummaryAudioUrl ||
+          currentSession.summary?.roadmapSummaryAudioUrl ||
+          "",
+        roadmapSummaryText:
+          roadmapSummaryText ||
+          currentSession.summary?.roadmapSummaryText ||
+          "",
+      },
+    };
+
+    localStorage.setItem("lastEMDRSession", JSON.stringify(updatedSession));
+
+    const sessions = JSON.parse(localStorage.getItem("emdrSessions") || "[]");
+    const updatedSessions = sessions.map((session) =>
+      session.sessionId && session.sessionId === updatedSession.sessionId
+        ? updatedSession
+        : session
+    );
+    localStorage.setItem("emdrSessions", JSON.stringify(updatedSessions));
+  };
+
   const appendBotMessage = (text) => {
     setMessages((currentMessages) => [
       ...currentMessages,
@@ -581,11 +618,12 @@ export default function EMDRCompanion() {
 
     try {
       ensureSessionPrerequisites();
-      await completeEmdrSession({
+      const completedSession = await completeEmdrSession({
         baseUrl,
         token,
         sessionId: sessionIdRef.current,
       });
+      persistGeneratedRoadmapAudioLocally(completedSession);
       localStorage.removeItem(CURRENT_EMDR_SESSION_STORAGE_KEY);
       sessionIdRef.current = "";
     } catch (error) {

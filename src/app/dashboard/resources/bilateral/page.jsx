@@ -351,7 +351,7 @@ export default function BilateralSettingsPage() {
               </button>
             </div>
 
-            <p className="text-sm text-stone-800 italic">34 sets · approximately 3 minutes</p>
+            <p className="text-sm text-stone-800 italic">34 full sets · approximately 3 minutes</p>
 
             {settingsError && (
               <p className="text-sm text-red-600">{settingsError}</p>
