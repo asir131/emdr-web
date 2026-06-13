@@ -573,6 +573,9 @@ function SessionContent() {
   const movementIntervalRef = useRef(null);
   const movementEndTimeoutRef = useRef(null);
   const nextMoveTimeoutRef = useRef(null);
+  const movementEndTimeoutsRef = useRef(new Set());
+  const movementWatchdogRef = useRef(null);
+  const lastMovementTickAtRef = useRef(0);
   const audioRef = useRef(null);
   const sessionInstructionAudioRef = useRef(null);
   const audioPoolRef = useRef([]);
@@ -783,7 +786,11 @@ function SessionContent() {
           sessionId: processingSessionId,
         });
 
-        if (!cancelled && backendSnapshot?.status === "in_progress") {
+        if (
+          !cancelled &&
+          backendSnapshot?.status === "in_progress" &&
+          !BLS_ACTIVE_STATES.includes(sessionStateRef.current)
+        ) {
           setPendingResumeSnapshot(backendSnapshot);
           saveSessionSnapshot(backendSnapshot);
         }
@@ -812,18 +819,34 @@ function SessionContent() {
   }, [audioProfile]);
   const hasDetectedHitPattern = detectedHits.length > 1;
 
-  const resetBlsRound = () => {
+  const resetBlsRound = ({ force = false } = {}) => {
+    if (!force && BLS_ACTIVE_STATES.includes(sessionStateRef.current)) {
+      console.warn("Ignored BLS reset while stimulation is active.");
+      return false;
+    }
+
     isPausedRef.current = false;
     setIsPaused(false);
     audioStopTimersRef.current.forEach(clearTimeout);
     audioStopTimersRef.current = [];
     clearInterval(movementIntervalRef.current);
+    clearInterval(movementWatchdogRef.current);
     clearTimeout(movementEndTimeoutRef.current);
     clearTimeout(nextMoveTimeoutRef.current);
+    movementEndTimeoutsRef.current.forEach(clearTimeout);
+    movementEndTimeoutsRef.current.clear();
     audioPoolRef.current.forEach((item) => {
       item.audio.pause();
+      try {
+        item.audio.currentTime = detectedHits[0]?.timeSec || 0;
+      } catch {}
     });
-    trackAudioRef.current?.pause();
+    if (trackAudioRef.current) {
+      trackAudioRef.current.pause();
+      try {
+        trackAudioRef.current.currentTime = 0;
+      } catch {}
+    }
     currentSetRef.current = 1;
     endpointHitCountRef.current = 0;
     movementIdRef.current = 0;
@@ -843,10 +866,11 @@ function SessionContent() {
     setCurrentSet(1);
     setIsRight(isRightRef.current);
     setMovementDurationMs(effectiveSpeedMs);
+    return true;
   };
 
   const resumeBlsRound = (nextState = "PLAYING") => {
-    resetBlsRound();
+    if (!resetBlsRound()) return;
     audioContextRef.current?.resume?.().catch(() => {});
     setSessionState(nextState);
   };
@@ -861,7 +885,7 @@ function SessionContent() {
     setRemainingSeconds(0);
     setShowTimerWarning(false);
     setIsPaused(false);
-    resetBlsRound();
+    resetBlsRound({ force: true });
     playInstructionAudio("endSession", "Your session time is ending now. Let's return to calm place and close safely.");
     setSessionState("CALM_PLACE");
   };
@@ -930,7 +954,7 @@ function SessionContent() {
     if (!snapshot) return;
 
     clearInterval(timerIntervalRef.current);
-    resetBlsRound();
+    resetBlsRound({ force: true });
 
     const savedCurrentSet = Math.max(1, Number(snapshot.currentSet) || 1);
     const savedEndpointHitCount = Math.max(0, Number(snapshot.endpointHitCount) || 0);
@@ -1295,8 +1319,11 @@ function SessionContent() {
   useEffect(() => {
     if (isLoading || isPaused || !BLS_ACTIVE_STATES.includes(sessionState)) {
       clearInterval(movementIntervalRef.current);
+      clearInterval(movementWatchdogRef.current);
       clearTimeout(movementEndTimeoutRef.current);
       clearTimeout(nextMoveTimeoutRef.current);
+      movementEndTimeoutsRef.current.forEach(clearTimeout);
+      movementEndTimeoutsRef.current.clear();
       trackAudioRef.current?.pause();
       playingEndpointKeysRef.current.clear();
       movementStateRef.current = MOVEMENT_STATES.STOPPED;
@@ -1308,6 +1335,7 @@ function SessionContent() {
     let roundCompleted = false;
     const loopRunId = loopRunIdRef.current + 1;
     loopRunIdRef.current = loopRunId;
+    const movementEndTimeouts = movementEndTimeoutsRef.current;
     movementStateRef.current = MOVEMENT_STATES.IDLE;
     movementTargetRightRef.current = null;
     const getProfile = () => {
@@ -1381,12 +1409,19 @@ function SessionContent() {
       audioStopTimersRef.current = [];
     };
 
+    const clearActiveHitPlaybackState = () => {
+      playingEndpointKeysRef.current.clear();
+      playingHitIdRef.current = null;
+      playingHitMovementIdRef.current = null;
+    };
+
     const stopHitPool = () => {
       clearAudioStopTimers();
       const pool = audioPoolRef.current.length ? audioPoolRef.current : [audioRef.current].filter(Boolean);
       pool.forEach((item) => {
         item.audio.pause();
       });
+      clearActiveHitPlaybackState();
     };
 
     const getEndpointKey = (side, movementId) => `${loopRunId}:${movementId}:${side}`;
@@ -1447,14 +1482,13 @@ function SessionContent() {
         return;
       }
 
-      playedEndpointKeysRef.current.add(endpointKey);
-      playingEndpointKeysRef.current.add(endpointKey);
-      lastPlayedHitIdRef.current = hitId;
-      playingHitIdRef.current = hitId;
-      lastPlayedMovementIdRef.current = movementId;
-      playingHitMovementIdRef.current = movementId;
-
       if (profile?.mode === "stereo-track") {
+        playedEndpointKeysRef.current.add(endpointKey);
+        playingEndpointKeysRef.current.add(endpointKey);
+        lastPlayedHitIdRef.current = hitId;
+        playingHitIdRef.current = hitId;
+        lastPlayedMovementIdRef.current = movementId;
+        playingHitMovementIdRef.current = movementId;
         playContinuousTrack(side, movementId, hitId);
         playingEndpointKeysRef.current.delete(endpointKey);
         playingHitIdRef.current = null;
@@ -1463,6 +1497,13 @@ function SessionContent() {
       }
 
       stopHitPool();
+      playedEndpointKeysRef.current.add(endpointKey);
+      playingEndpointKeysRef.current.add(endpointKey);
+      lastPlayedHitIdRef.current = hitId;
+      playingHitIdRef.current = hitId;
+      lastPlayedMovementIdRef.current = movementId;
+      playingHitMovementIdRef.current = movementId;
+
       const pool = audioPoolRef.current.length ? audioPoolRef.current : [audioRef.current];
       const sidePoolIndex = side === "right" && pool.length > 1 ? 1 : 0;
       const hitSound = pool[sidePoolIndex];
@@ -1553,11 +1594,6 @@ function SessionContent() {
       }
     };
 
-    const delayAfterHit = () =>
-      AUDIO_AFTER_HIT_DELAY_MS > 0
-        ? new Promise((resolve) => setTimeout(resolve, AUDIO_AFTER_HIT_DELAY_MS))
-        : Promise.resolve();
-
     const initialProfile = getProfile();
     if (!initialProfile) {
       console.warn("Bilateral audio profile missing; using fallback alternating timing.");
@@ -1566,21 +1602,23 @@ function SessionContent() {
     }
     if (initialProfile?.mode !== "stereo-track") stopContinuousTrack();
 
-    const finishSideHit = async (hitRightSide, movementId) => {
-      await delayAfterHit();
+    const finishSideHit = (hitRightSide, movementId) => {
       if (
         cancelled ||
         roundCompleted ||
         isPausedRef.current ||
-        loopRunIdRef.current !== loopRunId ||
-        movementIdRef.current !== movementId
+        loopRunIdRef.current !== loopRunId
       ) {
         return false;
       }
       const endpointSide = hitRightSide ? "right" : "left";
       const endpointKey = getEndpointKey(endpointSide, movementId);
       const hitId = getEndpointHitId(endpointSide, movementId);
-      playHitSound(endpointSide, movementId, hitId, endpointKey);
+      try {
+        playHitSound(endpointSide, movementId, hitId, endpointKey);
+      } catch (error) {
+        console.warn("Bilateral hit audio failed; continuing movement.", error);
+      }
       endpointHitCountRef.current += 1;
       const completedSets = Math.floor(
         endpointHitCountRef.current / ENDPOINT_HITS_PER_SET
@@ -1592,8 +1630,11 @@ function SessionContent() {
       if (completedSets >= TOTAL_SETS) {
         roundCompleted = true;
         clearInterval(movementIntervalRef.current);
+        clearInterval(movementWatchdogRef.current);
         clearTimeout(movementEndTimeoutRef.current);
         clearTimeout(nextMoveTimeoutRef.current);
+        movementEndTimeoutsRef.current.forEach(clearTimeout);
+        movementEndTimeoutsRef.current.clear();
         audioStopTimersRef.current.forEach(clearTimeout);
         audioStopTimersRef.current = [];
         audioPoolRef.current.forEach((item) => {
@@ -1621,63 +1662,73 @@ function SessionContent() {
     };
 
     const doMove = () => {
-      if (
-        cancelled ||
-        roundCompleted ||
-        isPausedRef.current ||
-        loopRunIdRef.current !== loopRunId
-      ) {
-        return;
-      }
-
-      const targetRightSide = !isRightRef.current;
-      const movementId = movementIdRef.current + 1;
-      movementIdRef.current = movementId;
-      movementStateRef.current = MOVEMENT_STATES.MOVING;
-      movementTargetRightRef.current = targetRightSide;
-
-      isRightRef.current = targetRightSide;
-      setMovementDurationMs(getCurrentSpeedMs());
-      setIsRight(targetRightSide);
-
-      clearTimeout(movementEndTimeoutRef.current);
-      movementEndTimeoutRef.current = setTimeout(async () => {
+      try {
         if (
           cancelled ||
           roundCompleted ||
           isPausedRef.current ||
-          loopRunIdRef.current !== loopRunId ||
-          movementIdRef.current !== movementId
+          loopRunIdRef.current !== loopRunId
         ) {
           return;
         }
 
-        movementEndTimeoutRef.current = null;
+        lastMovementTickAtRef.current = Date.now();
+        const targetRightSide = !isRightRef.current;
+        const movementId = movementIdRef.current + 1;
+        movementIdRef.current = movementId;
+        movementStateRef.current = MOVEMENT_STATES.MOVING;
+        movementTargetRightRef.current = targetRightSide;
+
+        isRightRef.current = targetRightSide;
+        setMovementDurationMs(getCurrentSpeedMs());
+        setIsRight(targetRightSide);
+
         movementStateRef.current = MOVEMENT_STATES.ENDPOINT_HIT;
-        await finishSideHit(targetRightSide, movementId);
-      }, getCurrentSpeedMs() + VISUAL_ENDPOINT_SETTLE_MS);
+        finishSideHit(targetRightSide, movementId);
+      } catch (error) {
+        console.warn("Bilateral movement tick failed; continuing heartbeat.", error);
+      }
     };
 
     const startDelayMs = 80;
-    const getTickIntervalMs = () =>
-      getCurrentSpeedMs() + VISUAL_ENDPOINT_SETTLE_MS + 80;
+    const getTickIntervalMs = () => getCurrentSpeedMs() + VISUAL_ENDPOINT_SETTLE_MS + 120;
     const timeout = setTimeout(() => {
       doMove();
       movementIntervalRef.current = setInterval(doMove, getTickIntervalMs());
+      movementWatchdogRef.current = setInterval(() => {
+        if (
+          cancelled ||
+          roundCompleted ||
+          isPausedRef.current ||
+          loopRunIdRef.current !== loopRunId
+        ) {
+          return;
+        }
+
+        const staleForMs = Date.now() - lastMovementTickAtRef.current;
+        if (staleForMs > getTickIntervalMs() * 2) {
+          clearInterval(movementIntervalRef.current);
+          doMove();
+          movementIntervalRef.current = setInterval(doMove, getTickIntervalMs());
+        }
+      }, 1000);
     }, startDelayMs);
     const playingEndpointKeys = playingEndpointKeysRef.current;
 
     return () => {
       cancelled = true;
-      clearInterval(movementIntervalRef.current);
       if (loopRunIdRef.current === loopRunId) {
         loopRunIdRef.current += 1;
       }
+      clearInterval(movementIntervalRef.current);
+      clearInterval(movementWatchdogRef.current);
       clearTimeout(timeout);
       clearTimeout(movementEndTimeoutRef.current);
       movementEndTimeoutRef.current = null;
       clearTimeout(nextMoveTimeoutRef.current);
       nextMoveTimeoutRef.current = null;
+      movementEndTimeouts.forEach(clearTimeout);
+      movementEndTimeouts.clear();
       playingEndpointKeys.clear();
       movementStateRef.current = MOVEMENT_STATES.STOPPED;
       movementTargetRightRef.current = null;
@@ -1685,6 +1736,11 @@ function SessionContent() {
   }, [isLoading, isPaused, sessionState, direction, speedMs]);
 
   const handleStart = () => {
+    if (BLS_ACTIVE_STATES.includes(sessionStateRef.current)) {
+      console.warn("Ignored duplicate BLS start while stimulation is active.");
+      return;
+    }
+
     const storedSessionId = getStoredProcessingSessionId();
     if (storedSessionId) {
       setProcessingSessionId(storedSessionId);
