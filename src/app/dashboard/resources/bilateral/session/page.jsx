@@ -7,7 +7,7 @@ import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelect
 import { useStoredAuth } from "@/redux/authStorage";
 import { analyzeAudioUrl } from "@/utils/bilateralAudioAnalysis";
 
-const SPEED_MS = { slow: 800, medium: 500, fast: 300 };
+const SPEED_MS = { slow: 800, medium: 500, fast: 300, faster: 180 };
 const TOTAL_SETS = 34;
 const ENDPOINT_HITS_PER_SET = 2;
 const VIDEO_STIMULUS_SIZE = 220;
@@ -16,8 +16,8 @@ const EDGE_PADDING = 8;
 const ONE_SHOT_HIT_PLAY_MS = 1200;
 const DETECTED_HIT_MAX_PLAY_MS = 420;
 const UNKNOWN_HIT_PLAY_MS = 320;
-const AUDIO_AFTER_HIT_DELAY_MS = 0;
 const VISUAL_ENDPOINT_SETTLE_MS = 120;
+const ENDPOINT_HIT_RATIO = 0.92;
 const VALID_DIRECTIONS = ["horizontal", "vertical", "diagonal-up", "diagonal-down"];
 const DEBUG_BILATERAL_AUDIO = process.env.NODE_ENV !== "production";
 const MOVEMENT_STATES = {
@@ -1683,8 +1683,27 @@ function SessionContent() {
         setMovementDurationMs(getCurrentSpeedMs());
         setIsRight(targetRightSide);
 
-        movementStateRef.current = MOVEMENT_STATES.ENDPOINT_HIT;
-        finishSideHit(targetRightSide, movementId);
+        const endpointHitDelayMs = Math.max(
+          80,
+          Math.round(getCurrentSpeedMs() * ENDPOINT_HIT_RATIO)
+        );
+        const endpointHitTimer = setTimeout(() => {
+          movementEndTimeoutsRef.current.delete(endpointHitTimer);
+          if (
+            cancelled ||
+            roundCompleted ||
+            isPausedRef.current ||
+            loopRunIdRef.current !== loopRunId
+          ) {
+            return;
+          }
+
+          movementStateRef.current = MOVEMENT_STATES.ENDPOINT_HIT;
+          finishSideHit(targetRightSide, movementId);
+        }, endpointHitDelayMs);
+
+        movementEndTimeoutRef.current = endpointHitTimer;
+        movementEndTimeoutsRef.current.add(endpointHitTimer);
       } catch (error) {
         console.warn("Bilateral movement tick failed; continuing heartbeat.", error);
       }

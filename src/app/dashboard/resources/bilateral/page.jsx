@@ -23,6 +23,7 @@ const speeds = [
   { id: "slow", name: "Slow", desc: "2600ms", icon: "🐢" },
   { id: "medium", name: "Medium", desc: "2000ms", icon: "🍃" },
   { id: "fast", name: "Fast", desc: "1500ms", icon: "⚡" },
+  { id: "faster", name: "Faster", desc: "900ms", icon: "⚡⚡" },
 ];
 
 const directions = [
@@ -215,14 +216,14 @@ export default function BilateralSettingsPage() {
               ) : icons.length === 0 ? (
                 <div className="py-8 text-center text-stone-500">No visuals found.</div>
               ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
                   {icons.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => updateSelection("icon", item.id)}
-                      className={`relative aspect-square rounded-xl cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.icon === item.id
+                      className={`relative aspect-square rounded-xl cursor-pointer overflow-hidden shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.icon === item.id
                         ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
-                        : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                        : "border-2 border-white/90 bg-white/85 hover:bg-white"
                         }`}
                     >
                       {item.mediaType === "video" ? (
@@ -237,10 +238,10 @@ export default function BilateralSettingsPage() {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <img src={item.img} alt={item.name} className="h-full w-full object-contain p-4" />
+                        <img src={item.img} alt={item.name} className="h-full w-full object-contain p-3" />
                       )}
-                      <div className="absolute inset-x-1 bottom-1 rounded-lg bg-white/85 px-1.5 py-1 text-center backdrop-blur-sm">
-                        <span className="block truncate text-[11px] leading-tight text-stone-700">{item.name}</span>
+                      <div className="absolute inset-x-1.5 bottom-1.5 rounded-lg bg-white/92 px-2 py-1.5 text-center shadow-sm backdrop-blur-sm">
+                        <span className="block truncate text-xs font-medium leading-tight text-stone-800">{item.name}</span>
                       </div>
                     </div>
                   ))}
@@ -256,19 +257,19 @@ export default function BilateralSettingsPage() {
               ) : sounds.length === 0 ? (
                 <div className="py-8 text-center text-stone-500">No sounds found.</div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
                   {sounds.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => handleSoundClick(item.id, item.url)}
-                      className={`rounded-xl cursor-pointer flex items-center gap-3 p-3 transition-all duration-200 ${selections.sound === item.id
+                      className={`min-w-0 rounded-xl cursor-pointer p-2.5 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.sound === item.id
                         ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/12 to-[#6a8a5a]/18"
-                        : "border-2 border-stone-200/80 bg-white/70 hover:bg-white/90"
+                        : "border-2 border-white/90 bg-white/85 hover:bg-white"
                         }`}
                     >
-                      <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" onError={(e) => { e.target.src = `https://picsum.photos/seed/soundfb${item.id}/150/150`; }} />
-                      <div className="flex-1 min-w-0">
-                        <span className="block text-xs font-medium text-stone-700 leading-tight truncate">
+                      <img src={item.image} alt={item.name} className="mx-auto h-14 w-14 rounded-lg object-cover shadow-sm" onError={(e) => { e.target.src = `https://picsum.photos/seed/soundfb${item.id}/150/150`; }} />
+                      <div className="mt-2 min-w-0">
+                        <span className="block truncate text-xs font-medium leading-tight text-stone-800">
                           {item.name}
                         </span>
                       </div>
@@ -284,17 +285,17 @@ export default function BilateralSettingsPage() {
             {/* Speed */}
             <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
               <SectionHeading>Speed</SectionHeading>
-              <div className="flex gap-3">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 {speeds.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => updateSelection("speed", item.id)}
-                    className={`flex-1 rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.speed === item.id
+                    className={`min-w-0 rounded-xl cursor-pointer text-center py-4 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.speed === item.id
                       ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
                       : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
                       }`}
                   >
-                    <div className="text-3xl mb-2">{item.icon}</div>
+                    <div className="text-2xl mb-2 leading-none">{item.icon}</div>
                     <div className={`text-sm italic mb-1 ${selections.speed === item.id ? "text-[#5a7a4a] font-semibold" : "text-stone-600"}`}>{item.name}</div>
                     <div className="text-xs text-stone-400">{item.desc}</div>
                   </div>
@@ -305,12 +306,12 @@ export default function BilateralSettingsPage() {
             {/* Direction */}
             <div className="bg-white/65 backdrop-blur-md rounded-2xl p-5 shadow-md border border-white/60">
               <SectionHeading>Direction</SectionHeading>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 {directions.map(({ id, name, Icon }) => (
                   <div
                     key={id}
                     onClick={() => updateSelection("direction", id)}
-                    className={`rounded-xl cursor-pointer text-center py-5 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.direction === id
+                    className={`min-w-0 rounded-xl cursor-pointer text-center py-4 px-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selections.direction === id
                       ? "border-2 border-[#7a9a6a] bg-gradient-to-br from-[#7a9a6a]/15 to-[#6a8a5a]/22 shadow-sm"
                       : "border-2 border-stone-200/80 bg-white/75 hover:bg-white/95"
                       }`}
@@ -325,12 +326,12 @@ export default function BilateralSettingsPage() {
 
           {/* Actions */}
           <div className="flex flex-col items-center gap-3 pt-2 pb-8">
-            <div className="flex items-center gap-5">
+            <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-5">
               <button
                 type="button"
                 onClick={() => saveSettings({ force: true })}
                 disabled={!currentPayload || saveState === "saving"}
-                className="flex items-center gap-2 px-8 py-3.5 bg-white/70 border-2 border-stone-300/80 rounded-full font-serif text-sm text-stone-600 hover:bg-white/90 hover:border-stone-400 transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 px-8 py-3.5 bg-white/70 border-2 border-stone-300/80 rounded-full font-serif text-sm text-stone-600 hover:bg-white/90 hover:border-stone-400 transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save size={16} />
                 {saveState === "saving" ? "Saving..." : "Save Settings"}
@@ -343,7 +344,7 @@ export default function BilateralSettingsPage() {
               <button
                 onClick={handleBeginSession}
                 disabled={!selections.environment || !selections.icon || !selections.sound}
-                className="flex items-center gap-2 px-14 py-4 rounded-full font-serif text-base text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 px-14 py-4 rounded-full font-serif text-base text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #7a9a6a 0%, #6a8a5a 100%)', boxShadow: '0 5px 25px rgba(106,138,90,0.35)' }}
               >
                 <Play size={18} fill="currentColor" />
