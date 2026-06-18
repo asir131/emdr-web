@@ -7,6 +7,14 @@ import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelect
 import { Save, Play, MoveHorizontal, MoveVertical, MoveUpRight, MoveDownRight, Music, Check } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
 import { updateSessionProgress, checkSessionAccess } from "@/utils/sessionProgress";
+import {
+  BILATERAL_INTRO_ROUTE,
+  hasWatchedBilateralIntroVideo,
+} from "@/utils/bilateralIntroVideo";
+import {
+  DEFAULT_BILATERAL_SELECTIONS,
+  withDefaultBilateralOptions,
+} from "@/utils/bilateralDefaultOptions";
 
 const postBilateralSettings = async ({ baseUrl, token, payload }) => {
   const response = await fetch(`${baseUrl}/api/bilateral/settings`, {
@@ -44,10 +52,10 @@ const SectionHeading = ({ children }) => (
 export default function BilateralSettingsPage() {
   const router = useRouter();
   const { token } = useStoredAuth();
-  const [selections, setSelections] = useState({ environment: "", icon: "", sound: "", speed: "medium", direction: "horizontal" });
-  const [environments, setEnvironments] = useState([]);
-  const [icons, setIcons] = useState([]);
-  const [sounds, setSounds] = useState([]);
+  const [selections, setSelections] = useState(DEFAULT_BILATERAL_SELECTIONS);
+  const [environments, setEnvironments] = useState(() => withDefaultBilateralOptions({}).environments);
+  const [icons, setIcons] = useState(() => withDefaultBilateralOptions({}).icons);
+  const [sounds, setSounds] = useState(() => withDefaultBilateralOptions({}).sounds);
   const [isLoadingMedia, setIsLoadingMedia] = useState(true);
   const [settingsError, setSettingsError] = useState("");
   const [saveState, setSaveState] = useState("idle");
@@ -84,7 +92,14 @@ export default function BilateralSettingsPage() {
 
   useEffect(() => {
     const load = async () => {
-      if (!token) { setIsLoadingMedia(false); return; }
+      if (!token) {
+        const defaults = withDefaultBilateralOptions({});
+        setEnvironments(defaults.environments);
+        setIcons(defaults.icons);
+        setSounds(defaults.sounds);
+        setIsLoadingMedia(false);
+        return;
+      }
       try {
         setIsLoadingMedia(true);
         const [envs, icns, snds] = await Promise.all([
@@ -92,14 +107,19 @@ export default function BilateralSettingsPage() {
           getBilateralIcons(token),
           getBilateralSounds(token),
         ]);
-        setEnvironments(envs);
-        setIcons(icns);
-        setSounds(snds);
+        const defaults = withDefaultBilateralOptions({
+          environments: envs,
+          icons: icns,
+          sounds: snds,
+        });
+        setEnvironments(defaults.environments);
+        setIcons(defaults.icons);
+        setSounds(defaults.sounds);
         setSelections((prev) => ({
           ...prev,
-          environment: prev.environment || envs[0]?.id || "",
-          icon: prev.icon || icns[0]?.id || "",
-          sound: prev.sound || snds[0]?.id || "",
+          environment: prev.environment || DEFAULT_BILATERAL_SELECTIONS.environment,
+          icon: prev.icon || DEFAULT_BILATERAL_SELECTIONS.icon,
+          sound: prev.sound || DEFAULT_BILATERAL_SELECTIONS.sound,
         }));
       } catch (error) {
         setSettingsError(error.message || "Unable to load bilateral settings right now.");
@@ -109,6 +129,13 @@ export default function BilateralSettingsPage() {
     };
     load();
   }, [token]);
+
+  useEffect(() => {
+    const activeJourneyId = localStorage.getItem("activeJourneyId") || "";
+    if (!hasWatchedBilateralIntroVideo(activeJourneyId)) {
+      router.replace(BILATERAL_INTRO_ROUTE);
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!token || !baseUrl) return;
@@ -179,7 +206,7 @@ export default function BilateralSettingsPage() {
             {isLoadingMedia ? (
               <div className="py-8 text-center text-stone-500">Loading scenes...</div>
             ) : environments.length === 0 ? (
-              <div className="py-8 text-center text-stone-500">No scenes found.</div>
+                <div className="py-8 text-center text-stone-500">No scenes found.</div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
                 {environments.map((env) => (
@@ -192,6 +219,11 @@ export default function BilateralSettingsPage() {
                       }`}
                   >
                     <img src={env.image} alt={env.name} className="w-full h-full object-cover" />
+                    {env.isBuiltIn && (
+                      <div className="absolute inset-x-0 bottom-0 bg-white/90 px-2 py-1 text-center text-xs font-medium text-stone-800">
+                        {env.name}
+                      </div>
+                    )}
                     <div className="absolute inset-x-0 bottom-0 py-2 px-1 bg-gradient-to-t from-black/60 to-transparent text-center">
                       {/* <span className="text-white text-xs italic">{env.name}</span> */}
                     </div>

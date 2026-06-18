@@ -4,6 +4,7 @@ import { Music } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
 
 const BILATERAL_SOUND_CATEGORY_NAME = "bilateral stimulation sound";
+const HIDDEN_SOUND_NAMES = ["ok lets continue"];
 
 export const getBilateralSounds = async (token) => {
   const rawBaseUrl =
@@ -73,6 +74,10 @@ export const getBilateralSounds = async (token) => {
          return item.categoryId.categoryName.trim().toLowerCase() === BILATERAL_SOUND_CATEGORY_NAME;
       }
       return true; // if no category info on item, just accept it since we might be filtering at API level
+    })
+    .filter((item) => {
+      const soundName = String(item?.name || "").trim().toLowerCase();
+      return !HIDDEN_SOUND_NAMES.includes(soundName);
     })
     .map((item, index) => ({
       id: item?._id,

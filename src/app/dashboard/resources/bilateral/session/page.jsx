@@ -6,6 +6,14 @@ import { getBilateralIcons } from "@/components/dashboard/bilateral/VisualIconSe
 import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelector";
 import { useStoredAuth } from "@/redux/authStorage";
 import { analyzeAudioUrl } from "@/utils/bilateralAudioAnalysis";
+import {
+  BILATERAL_INTRO_ROUTE,
+  hasWatchedBilateralIntroVideo,
+} from "@/utils/bilateralIntroVideo";
+import {
+  DEFAULT_BILATERAL_SELECTIONS,
+  withDefaultBilateralOptions,
+} from "@/utils/bilateralDefaultOptions";
 
 const SPEED_MS = { slow: 800, medium: 500, fast: 300, faster: 180 };
 const TOTAL_SETS = 34;
@@ -27,6 +35,12 @@ const MOVEMENT_STATES = {
   STOPPED: "stopped",
 };
 const BLS_ACTIVE_STATES = ["PLAYING", "PHASE2_BLS", "PHASE3_BLS"];
+const DIRECTION_OPTIONS = [
+  { value: "horizontal", label: "Horizontal" },
+  { value: "vertical", label: "Vertical" },
+  { value: "diagonal-up", label: "Diagonal Up" },
+  { value: "diagonal-down", label: "Diagonal Down" },
+];
 const DEFAULT_POSITIVE_BELIEF = "I am safe now";
 const FIVE_MINUTES_SECONDS = 5 * 60;
 const AUTO_SAVE_STORAGE_KEY = "bilateralSessionAutoSave";
@@ -36,6 +50,12 @@ const PHASE2_INSTALLATION_SCRIPT =
   "Put the words [POSITIVE BELIEF] together with your original image or what is left of it. Mash it together in your mind and start the bilateral stimulation.";
 const POSITIVE_REINFORCEMENT_SCRIPT = "Lovely! Keep going.";
 const NEGATIVE_BRANCH_SCRIPT = "OK good, keep going.";
+const STUCK_GUIDANCE_SCRIPT =
+  "If you're feeling stuck, try changing the direction of the bilateral stimulation. You can switch to any of the available directions below: Horizontal, Vertical, Diagonal Up, Diagonal Down. Choose the direction that feels most comfortable and continue the session. Sometimes a different movement pattern can help you move past a thought or feeling that feels stuck.";
+const BODY_SCAN_GUIDANCE_SCRIPT =
+  "Now I want you to spend a moment with your eyes closed. Look through your body from the top of your head, downwards. If there are any sensations present let me know.";
+const SENSATION_PRESENT_GUIDANCE_SCRIPT =
+  "OK, look closely at that sensation, as if you have never seen anything like it before. Focus on it and try not to let your mind wander this time. When you have it in mind and are ready press start.";
 
 const normalizeDirection = (value) => {
   if (value === "left-right") return "horizontal";
@@ -94,6 +114,31 @@ function speakAsync(text) {
   });
 }
 
+const waitForSpeechSynthesisIdle = () =>
+  new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      resolve();
+      return;
+    }
+
+    const startedAt = Date.now();
+    const check = () => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        resolve();
+        return;
+      }
+
+      if (Date.now() - startedAt > 120000) {
+        resolve();
+        return;
+      }
+
+      window.setTimeout(check, 100);
+    };
+
+    check();
+  });
+
 const readStoredEmdrSession = () => {
   if (typeof window === "undefined") return null;
 
@@ -109,6 +154,74 @@ const firstText = (...values) => {
   return match ? match.trim() : "";
 };
 
+const isOldRoadmapSummaryText = (value) => {
+  const text = firstText(value);
+  return (
+    text === "Your roadmap summary is ready." ||
+    text.includes("The original memory or image you are working with is:") ||
+    text.includes("The freeze frame is:") ||
+    text.includes("The negative belief is:")
+  );
+};
+
+const buildLocalRoadmapSummaryText = (latestSession, summary, beliefPairs) => {
+  const startingPoint = firstText(summary.startingPoint, latestSession?.startingPoint).toLowerCase();
+  const isAddictionFlow = Boolean(summary.isAddictionFlow || startingPoint.includes("addiction"));
+  const responses = Array.isArray(latestSession?.responses) ? latestSession.responses : [];
+
+  if (isAddictionFlow) {
+    return [
+      firstText(summary.target, responses[1])
+        ? `You are focusing on ${firstText(summary.target, responses[1])}.`
+        : "",
+      firstText(responses[2])
+        ? `The positive feeling is ${firstText(responses[2])}.`
+        : "",
+      firstText(responses[4])
+        ? `The thoughts connected with it are ${firstText(responses[4])}.`
+        : "",
+      firstText(summary.bodyLocation, responses[5])
+        ? `You notice it in ${firstText(summary.bodyLocation, responses[5])}.`
+        : "",
+      firstText(responses[6])
+        ? `The image or shape that comes to mind is ${firstText(responses[6])}.`
+        : "",
+      "Now, when you are ready and have this in mind, press start.",
+    ].filter(Boolean).join(" ");
+  }
+
+  const targetPrefix = startingPoint.includes("future")
+    ? "You are imagining"
+    : startingPoint.includes("words")
+      ? "You are bringing to mind"
+      : startingPoint.includes("difficult emotions")
+        ? "You are focusing on"
+        : "You are remembering";
+  const target = firstText(summary.freezeFrame, summary.target, responses[2], responses[1]);
+  const negativeBeliefs = beliefPairs
+    .map((pair) => firstText(pair?.negative, pair?.negativeBelief))
+    .filter(Boolean);
+  const positiveBeliefs = beliefPairs
+    .map((pair) => firstText(pair?.positive, pair?.positiveBelief))
+    .filter(Boolean);
+  const emotions = [
+    firstText(summary.primaryEmotion),
+    firstText(summary.additionalEmotions),
+  ].filter(Boolean);
+  const bodyLocation = firstText(summary.bodyLocation);
+
+  return [
+    target ? `${targetPrefix} ${target}.` : "",
+    negativeBeliefs.length ? `The thoughts are ${negativeBeliefs.join(", ")}.` : "",
+    emotions.length ? `You are feeling ${emotions.join(", ")}.` : "",
+    bodyLocation ? `It sits in ${bodyLocation}.` : "",
+    positiveBeliefs.length
+      ? `The positive belief${positiveBeliefs.length > 1 ? "s are" : " is"} ${positiveBeliefs.join(", ")}.`
+      : "",
+    "Now, when you are ready and have this in mind, press start.",
+  ].filter(Boolean).join(" ");
+};
+
 const getStoredRoadmapAudioContext = () => {
   const latestSession = readStoredEmdrSession();
   const summary = latestSession?.summary || {};
@@ -118,34 +231,15 @@ const getStoredRoadmapAudioContext = () => {
     : Array.isArray(latestSession?.beliefPairs)
       ? latestSession.beliefPairs
       : [];
-  const primaryBeliefPair = beliefPairs[0] || {};
 
-  const positiveBeliefs = beliefPairs
-    .map((pair) => pair?.positive || pair?.positiveBelief || "")
-    .filter(Boolean);
-
-  const narrationParts = [
-    "Your roadmap summary is ready.",
-    firstText(summary.startingPoint, latestSession?.startingPoint)
-      ? `Starting point: ${firstText(summary.startingPoint, latestSession?.startingPoint)}.`
-      : "",
-    firstText(summary.target, latestSession?.responses?.[1])
-      ? `Original memory or image: ${firstText(summary.target, latestSession?.responses?.[1])}.`
-      : "",
-    firstText(summary.freezeFrame, latestSession?.responses?.[2])
-      ? `Freeze frame: ${firstText(summary.freezeFrame, latestSession?.responses?.[2])}.`
-      : "",
-    firstText(primaryBeliefPair?.negative, primaryBeliefPair?.negativeBelief)
-      ? `Negative belief: ${firstText(primaryBeliefPair?.negative, primaryBeliefPair?.negativeBelief)}.`
-      : "",
-    positiveBeliefs.length
-      ? `Positive belief${positiveBeliefs.length > 1 ? "s" : ""}: ${positiveBeliefs.join(". ")}.`
-      : "",
-    firstText(summary.sudRating)
-      ? `Current SUDS rating: ${firstText(summary.sudRating)} out of 10.`
-      : "",
-    READY_SCRIPT,
-  ].filter(Boolean);
+  const localRoadmapSummaryText = buildLocalRoadmapSummaryText(latestSession, summary, beliefPairs);
+  const storedRoadmapSummaryText = firstText(
+    summary.roadmapSummaryText,
+    latestSession?.roadmapSummaryText,
+    summary.narration
+  );
+  const hasOldStoredRoadmapSummaryText = isOldRoadmapSummaryText(storedRoadmapSummaryText);
+  const shouldUseStoredAudio = !hasOldStoredRoadmapSummaryText;
 
   return {
     introAudioUrl: firstText(
@@ -154,22 +248,22 @@ const getStoredRoadmapAudioContext = () => {
       latestSession?.introAudioUrl,
       summary.introAudioUrl
     ),
-    roadmapSummaryAudioUrl: firstText(
-      audio.roadmapSummary,
-      audio.roadmapSummaryAudioUrl,
-      audio.summary,
-      audio.summaryAudioUrl,
-      latestSession?.roadmapSummaryAudioUrl,
-      latestSession?.summaryAudioUrl,
-      summary.roadmapSummaryAudioUrl,
-      summary.summaryAudioUrl,
-      summary.audioUrl
-    ),
+    roadmapSummaryAudioUrl: shouldUseStoredAudio
+      ? firstText(
+          audio.roadmapSummary,
+          audio.roadmapSummaryAudioUrl,
+          audio.summary,
+          audio.summaryAudioUrl,
+          latestSession?.roadmapSummaryAudioUrl,
+          latestSession?.summaryAudioUrl,
+          summary.roadmapSummaryAudioUrl,
+          summary.summaryAudioUrl,
+          summary.audioUrl
+        )
+      : "",
     roadmapSummaryText: firstText(
-      latestSession?.roadmapSummaryText,
-      summary.roadmapSummaryText,
-      summary.narration,
-      narrationParts.join(" ")
+      hasOldStoredRoadmapSummaryText ? localRoadmapSummaryText : storedRoadmapSummaryText,
+      localRoadmapSummaryText
     ),
   };
 };
@@ -205,6 +299,43 @@ const getStoredTarget = () => {
     return { target: "", freezeFrame: "" };
   }
 };
+
+const getLatestCalmPlaceWord = async ({ baseUrl, token }) => {
+  if (!baseUrl || !token) return "";
+
+  const response = await fetch(`${baseUrl}/api/calm-place`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const result = await response.json();
+
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.message || "Failed to fetch calm place.");
+  }
+
+  const latestCalmPlace = (result?.data || [])
+    .slice()
+    .sort(
+      (firstItem, secondItem) =>
+        new Date(secondItem?.createdAt || 0).getTime() -
+        new Date(firstItem?.createdAt || 0).getTime()
+    )[0];
+
+  return firstText(
+    latestCalmPlace?.pincode,
+    latestCalmPlace?.pinCode,
+    latestCalmPlace?.word,
+    latestCalmPlace?.keyword,
+    latestCalmPlace?.describe
+  );
+};
+
+const buildCalmPlacePrompt = (calmPlaceWord) =>
+  firstText(calmPlaceWord)
+    ? `Please bring up your pincode, ${firstText(calmPlaceWord)}, and spend a minute finding that nice feeling in the body.`
+    : "Please bring up your pincode and spend a minute finding that nice feeling in the body.";
 
 const saveSessionSnapshot = (snapshot) => {
   if (typeof window === "undefined") return;
@@ -527,10 +658,11 @@ function SessionContent() {
   const router = useRouter();
   const { token } = useStoredAuth();
   const baseUrl = useMemo(() => getBaseUrl(), []);
+  const initialDirection = normalizeDirection(searchParams.get("direction") || "horizontal");
 
-  const [environments, setEnvironments] = useState([]);
-  const [icons, setIcons] = useState([]);
-  const [sounds, setSounds] = useState([]);
+  const [environments, setEnvironments] = useState(() => withDefaultBilateralOptions({}).environments);
+  const [icons, setIcons] = useState(() => withDefaultBilateralOptions({}).icons);
+  const [sounds, setSounds] = useState(() => withDefaultBilateralOptions({}).sounds);
   const [isLoading, setIsLoading] = useState(true);
   const [instructionAudioMap, setInstructionAudioMap] = useState({});
   
@@ -548,9 +680,13 @@ function SessionContent() {
     roadmapSummaryText: "",
   });
   const [isRoadmapAudioPlaying, setIsRoadmapAudioPlaying] = useState(false);
+  const [isRoadmapAudioPaused, setIsRoadmapAudioPaused] = useState(false);
   const [hasRoadmapAudioCompleted, setHasRoadmapAudioCompleted] = useState(false);
+  const [calmPlaceWord, setCalmPlaceWord] = useState("");
   
   const [isPaused, setIsPaused] = useState(false);
+  const [pausedVisualPos, setPausedVisualPos] = useState(null);
+  const [resumeVisualDurationMs, setResumeVisualDurationMs] = useState(null);
   const [currentSet, setCurrentSet] = useState(1);
   const [latestSudsRating, setLatestSudsRating] = useState(null);
   const [timerClosureSudsRating, setTimerClosureSudsRating] = useState(null);
@@ -567,6 +703,11 @@ function SessionContent() {
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [audioProfile, setAudioProfile] = useState(null);
   const [movementDurationMs, setMovementDurationMs] = useState(SPEED_MS.medium);
+  const [direction, setDirection] = useState(initialDirection);
+  const [stuckOriginalDirection, setStuckOriginalDirection] = useState(initialDirection);
+  const [stuckSelectedDirection, setStuckSelectedDirection] = useState("");
+  const [isStuckAudioComplete, setIsStuckAudioComplete] = useState(false);
+  const [isStuckInstructionPlaying, setIsStuckInstructionPlaying] = useState(false);
 
   const containerRef = useRef(null);
   const movingElementRef = useRef(null);
@@ -581,6 +722,13 @@ function SessionContent() {
   const audioPoolRef = useRef([]);
   const audioPoolIndexRef = useRef(0);
   const trackAudioRef = useRef(null);
+
+  useEffect(() => {
+    const activeJourneyId = localStorage.getItem("activeJourneyId") || "";
+    if (!hasWatchedBilateralIntroVideo(activeJourneyId)) {
+      router.replace(BILATERAL_INTRO_ROUTE);
+    }
+  }, [router]);
   const audioContextRef = useRef(null);
   const audioStopTimersRef = useRef([]);
   const timerIntervalRef = useRef(null);
@@ -593,6 +741,8 @@ function SessionContent() {
   const latestBackendSnapshotRawRef = useRef("");
   const finalResultSavedRef = useRef(false);
   const isPausedRef = useRef(false);
+  const resumeFromPauseRef = useRef(false);
+  const pausedMovementRef = useRef(null);
   const isRightRef = useRef(false);
   const currentSetRef = useRef(1);
   const endpointHitCountRef = useRef(0);
@@ -612,11 +762,10 @@ function SessionContent() {
   const detectedHitsRef = useRef([]);
   const effectiveSpeedMsRef = useRef(SPEED_MS.medium);
 
-  const envId = searchParams.get("environment") || "";
-  const iconId = searchParams.get("icon") || "";
-  const soundId = searchParams.get("sound") || "";
+  const envId = searchParams.get("environment") || DEFAULT_BILATERAL_SELECTIONS.environment;
+  const iconId = searchParams.get("icon") || DEFAULT_BILATERAL_SELECTIONS.icon;
+  const soundId = searchParams.get("sound") || DEFAULT_BILATERAL_SELECTIONS.sound;
   const speed = SPEED_MS[searchParams.get("speed")] ? searchParams.get("speed") : "medium";
-  const direction = normalizeDirection(searchParams.get("direction") || "horizontal");
 
   const speedMs = SPEED_MS[speed] || SPEED_MS.medium;
   const introFallbackText =
@@ -633,6 +782,35 @@ function SessionContent() {
     }
 
     setIsRoadmapAudioPlaying(false);
+    setIsRoadmapAudioPaused(false);
+  };
+
+  const pauseSessionInstructionAudio = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.pause();
+    }
+
+    if (sessionInstructionAudioRef.current) {
+      sessionInstructionAudioRef.current.pause();
+    }
+
+    setIsRoadmapAudioPlaying(false);
+    setIsRoadmapAudioPaused(true);
+  };
+
+  const resumeSessionInstructionAudio = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis?.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    if (sessionInstructionAudioRef.current?.paused) {
+      sessionInstructionAudioRef.current.play().catch((error) => {
+        console.warn("Unable to resume roadmap audio.", error);
+      });
+    }
+
+    setIsRoadmapAudioPaused(false);
+    setIsRoadmapAudioPlaying(true);
   };
 
   const playAudioFile = (audioUrl) =>
@@ -676,9 +854,40 @@ function SessionContent() {
       });
     });
 
+  const waitForSessionInstructionAudioToFinish = async () => {
+    const activeAudio = sessionInstructionAudioRef.current;
+
+    if (activeAudio && !activeAudio.paused && !activeAudio.ended) {
+      await new Promise((resolve) => {
+        const cleanup = () => {
+          activeAudio.removeEventListener("ended", handleDone);
+          activeAudio.removeEventListener("error", handleDone);
+          activeAudio.removeEventListener("pause", handlePause);
+        };
+        const handleDone = () => {
+          cleanup();
+          resolve();
+        };
+        const handlePause = () => {
+          if (activeAudio.ended || sessionInstructionAudioRef.current !== activeAudio) {
+            handleDone();
+          }
+        };
+
+        activeAudio.addEventListener("ended", handleDone, { once: true });
+        activeAudio.addEventListener("error", handleDone, { once: true });
+        activeAudio.addEventListener("pause", handlePause);
+      });
+    }
+
+    await waitForSpeechSynthesisIdle();
+  };
+
   const playIntroAndRoadmapSummary = async () => {
     stopSessionInstructionAudio();
     setIsRoadmapAudioPlaying(true);
+    setIsRoadmapAudioPaused(false);
+    setHasRoadmapAudioCompleted(false);
 
     try {
       const introAudioUrl = roadmapAudioContext.introAudioUrl || instructionAudioMap.intro || "";
@@ -713,6 +922,7 @@ function SessionContent() {
       setHasRoadmapAudioCompleted(true);
     } finally {
       setIsRoadmapAudioPlaying(false);
+      setIsRoadmapAudioPaused(false);
     }
   };
 
@@ -732,6 +942,17 @@ function SessionContent() {
     await speakAsync(fallbackText);
   };
 
+  const playCalmPlaceInstruction = async () => {
+    const fallbackText = buildCalmPlacePrompt(calmPlaceWord);
+
+    if (firstText(calmPlaceWord)) {
+      await speakAsync(fallbackText);
+      return;
+    }
+
+    await playInstructionAudio("calmPlace", fallbackText);
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -744,9 +965,14 @@ function SessionContent() {
             return {};
           }),
         ]);
-        setEnvironments(envs);
-        setIcons(icns);
-        setSounds(snds);
+        const defaults = withDefaultBilateralOptions({
+          environments: envs,
+          icons: icns,
+          sounds: snds,
+        });
+        setEnvironments(defaults.environments);
+        setIcons(defaults.icons);
+        setSounds(defaults.sounds);
         setInstructionAudioMap(instructionAudio);
       } catch (e) {
         console.error(e);
@@ -772,6 +998,29 @@ function SessionContent() {
       setPendingResumeSnapshot(savedSnapshot);
     }
   }, []);
+
+  useEffect(() => {
+    if (!baseUrl || !token) return;
+
+    let cancelled = false;
+
+    const loadCalmPlaceWord = async () => {
+      try {
+        const latestWord = await getLatestCalmPlaceWord({ baseUrl, token });
+        if (!cancelled) {
+          setCalmPlaceWord(latestWord);
+        }
+      } catch (error) {
+        console.warn("Unable to load calm place word.", error);
+      }
+    };
+
+    loadCalmPlaceWord();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, token]);
 
   useEffect(() => {
     if (!baseUrl || !token || !processingSessionId) return;
@@ -826,6 +1075,10 @@ function SessionContent() {
     }
 
     isPausedRef.current = false;
+    resumeFromPauseRef.current = false;
+    pausedMovementRef.current = null;
+    setPausedVisualPos(null);
+    setResumeVisualDurationMs(null);
     setIsPaused(false);
     audioStopTimersRef.current.forEach(clearTimeout);
     audioStopTimersRef.current = [];
@@ -869,7 +1122,8 @@ function SessionContent() {
     return true;
   };
 
-  const resumeBlsRound = (nextState = "PLAYING") => {
+  const resumeBlsRound = async (nextState = "PLAYING") => {
+    await waitForSessionInstructionAudioToFinish();
     if (!resetBlsRound()) return;
     audioContextRef.current?.resume?.().catch(() => {});
     setSessionState(nextState);
@@ -949,7 +1203,7 @@ function SessionContent() {
     timerPausedBlsRef.current = false;
   };
 
-  const handleResumeSavedSession = () => {
+  const handleResumeSavedSession = async () => {
     const snapshot = pendingResumeSnapshot;
     if (!snapshot) return;
 
@@ -985,6 +1239,7 @@ function SessionContent() {
     setTargetContext(snapshot.targetContext || getStoredTarget());
     setRoadmapAudioContext(snapshot.roadmapAudioContext || getStoredRoadmapAudioContext());
     setHasRoadmapAudioCompleted(Boolean(snapshot.hasRoadmapAudioCompleted));
+    setDirection(normalizeDirection(snapshot.stimulation?.direction || direction));
     setBodyScanHistory(Array.isArray(snapshot.bodyScanHistory) ? snapshot.bodyScanHistory : []);
     setBodySensationLocation(snapshot.bodySensationDraft?.location || "");
     setBodySensationDescription(snapshot.bodySensationDraft?.description || "");
@@ -1003,13 +1258,18 @@ function SessionContent() {
         ? snapshot.sessionState
         : "INTRO";
 
-    setSessionState(nextState);
+    const shouldResumeActiveSession = nextState !== "INTRO" && nextState !== "CALM_PLACE";
 
-    if (nextState !== "INTRO" && nextState !== "CALM_PLACE") {
+    setSessionState(shouldResumeActiveSession ? "RESUMING_SAVED_SESSION" : nextState);
+
+    await speakAsync("Your saved session has been restored.");
+    await waitForSessionInstructionAudioToFinish();
+
+    if (shouldResumeActiveSession) {
       startSessionTimer(savedRemainingSeconds);
     }
 
-    speak("Your saved session has been restored.");
+    setSessionState(nextState);
   };
 
   const handleStartNewSession = async () => {
@@ -1039,10 +1299,7 @@ function SessionContent() {
 
   const handleGoToCalmPlace = () => {
     setSessionState("CALM_PLACE");
-    playInstructionAudio(
-      "calmPlace",
-      "Please bring up your pincode and spend a minute finding that nice feeling in the body."
-    );
+    playCalmPlaceInstruction();
   };
 
   const handleEndSafely = () => {
@@ -1292,6 +1549,49 @@ function SessionContent() {
     return { x: goRight ? bounds.right : bounds.left, y: goRight ? bounds.bottom : bounds.top };
   }
 
+  function getRenderedMovementPos(fallbackPos) {
+    const element = movingElementRef.current;
+    if (!element || typeof window === "undefined") return fallbackPos;
+
+    const transform = window.getComputedStyle(element).transform;
+    if (!transform || transform === "none") return fallbackPos;
+
+    try {
+      const matrix = new DOMMatrixReadOnly(transform);
+      return { x: matrix.m41, y: matrix.m42 };
+    } catch {
+      const match = transform.match(/matrix(?:3d)?\(([^)]+)\)/);
+      if (!match) return fallbackPos;
+
+      const values = match[1].split(",").map((value) => Number(value.trim()));
+      if (values.length === 16) {
+        return { x: values[12], y: values[13] };
+      }
+      if (values.length >= 6) {
+        return { x: values[4], y: values[5] };
+      }
+    }
+
+    return fallbackPos;
+  }
+
+  function getDistance(firstPos, secondPos) {
+    return Math.hypot(firstPos.x - secondPos.x, firstPos.y - secondPos.y);
+  }
+
+  function getMovementRemainingMs(currentVisualPos, targetRightSide) {
+    if (movementStateRef.current !== MOVEMENT_STATES.MOVING) return 0;
+
+    const startPos = getNextPos(!targetRightSide);
+    const targetPos = getNextPos(targetRightSide);
+    const totalDistance = getDistance(startPos, targetPos);
+    if (!totalDistance) return 0;
+
+    const remainingDistance = getDistance(currentVisualPos, targetPos);
+    const remainingRatio = Math.max(0, Math.min(1, remainingDistance / totalDistance));
+    return Math.round((effectiveSpeedMsRef.current || movementDurationMs) * remainingRatio);
+  }
+
   function getMovementTransform(goRight) {
     const iconSearchText = [
       selectedIcon?.name,
@@ -1326,8 +1626,10 @@ function SessionContent() {
       movementEndTimeoutsRef.current.clear();
       trackAudioRef.current?.pause();
       playingEndpointKeysRef.current.clear();
-      movementStateRef.current = MOVEMENT_STATES.STOPPED;
-      movementTargetRightRef.current = null;
+      if (!isPaused) {
+        movementStateRef.current = MOVEMENT_STATES.STOPPED;
+        movementTargetRightRef.current = null;
+      }
       return;
     }
 
@@ -1645,7 +1947,6 @@ function SessionContent() {
         movementTargetRightRef.current = null;
         if (sessionState === "PHASE3_BLS") {
           setSessionState("PHASE3_BODY_SCAN");
-          speak("Now scan your body again from head to toe and notice whether anything remains.");
         } else if (sessionState === "PHASE2_BLS") {
           setSessionState("PHASE2_NOTICE");
           speak("What do you notice now?");
@@ -1709,9 +2010,11 @@ function SessionContent() {
       }
     };
 
-    const startDelayMs = 80;
+    const resumeSnapshot = resumeFromPauseRef.current ? pausedMovementRef.current : null;
+    resumeFromPauseRef.current = false;
+    pausedMovementRef.current = null;
     const getTickIntervalMs = () => getCurrentSpeedMs() + VISUAL_ENDPOINT_SETTLE_MS + 120;
-    const timeout = setTimeout(() => {
+    const startMovementTimers = () => {
       doMove();
       movementIntervalRef.current = setInterval(doMove, getTickIntervalMs());
       movementWatchdogRef.current = setInterval(() => {
@@ -1731,7 +2034,47 @@ function SessionContent() {
           movementIntervalRef.current = setInterval(doMove, getTickIntervalMs());
         }
       }, 1000);
-    }, startDelayMs);
+    };
+    let timeout = null;
+    let resumeEndpointTimer = null;
+
+    if (resumeSnapshot?.wasMoving && resumeSnapshot.remainingMs > 0) {
+      const targetRightSide = Boolean(resumeSnapshot.targetRight);
+      const movementId = resumeSnapshot.movementId || movementIdRef.current;
+      const remainingMs = Math.max(80, resumeSnapshot.remainingMs);
+
+      lastMovementTickAtRef.current = Date.now();
+      movementStateRef.current = MOVEMENT_STATES.MOVING;
+      movementTargetRightRef.current = targetRightSide;
+      isRightRef.current = targetRightSide;
+      setMovementDurationMs(remainingMs);
+      setIsRight(targetRightSide);
+
+      resumeEndpointTimer = setTimeout(() => {
+        movementEndTimeoutsRef.current.delete(resumeEndpointTimer);
+        if (
+          cancelled ||
+          roundCompleted ||
+          isPausedRef.current ||
+          loopRunIdRef.current !== loopRunId
+        ) {
+          return;
+        }
+
+        movementStateRef.current = MOVEMENT_STATES.ENDPOINT_HIT;
+        setResumeVisualDurationMs(null);
+        finishSideHit(targetRightSide, movementId);
+      }, remainingMs);
+      movementEndTimeoutRef.current = resumeEndpointTimer;
+      movementEndTimeoutsRef.current.add(resumeEndpointTimer);
+
+      timeout = setTimeout(() => {
+        setResumeVisualDurationMs(null);
+        startMovementTimers();
+      }, remainingMs + VISUAL_ENDPOINT_SETTLE_MS + 120);
+    } else {
+      timeout = setTimeout(startMovementTimers, 80);
+    }
     const playingEndpointKeys = playingEndpointKeysRef.current;
 
     return () => {
@@ -1742,6 +2085,7 @@ function SessionContent() {
       clearInterval(movementIntervalRef.current);
       clearInterval(movementWatchdogRef.current);
       clearTimeout(timeout);
+      clearTimeout(resumeEndpointTimer);
       clearTimeout(movementEndTimeoutRef.current);
       movementEndTimeoutRef.current = null;
       clearTimeout(nextMoveTimeoutRef.current);
@@ -1754,18 +2098,24 @@ function SessionContent() {
     };
   }, [isLoading, isPaused, sessionState, direction, speedMs]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (BLS_ACTIVE_STATES.includes(sessionStateRef.current)) {
       console.warn("Ignored duplicate BLS start while stimulation is active.");
       return;
     }
+
+    if (!hasRoadmapAudioCompleted) {
+      await playIntroAndRoadmapSummary();
+      return;
+    }
+
+    await waitForSessionInstructionAudioToFinish();
 
     const storedSessionId = getStoredProcessingSessionId();
     if (storedSessionId) {
       setProcessingSessionId(storedSessionId);
     }
 
-    stopSessionInstructionAudio();
     audioContextRef.current?.resume?.().catch(() => {});
     audioStopTimersRef.current.forEach(clearTimeout);
     audioStopTimersRef.current = [];
@@ -1807,6 +2157,38 @@ function SessionContent() {
     setSessionState("PLAYING");
   };
 
+  const openStuckDirectionModal = () => {
+    setIsPaused(true);
+    setStuckOriginalDirection(direction);
+    setStuckSelectedDirection("");
+    setIsStuckAudioComplete(false);
+    setIsStuckInstructionPlaying(true);
+    setSessionState("STUCK");
+
+    (async () => {
+      try {
+        await playInstructionAudio("stuck", STUCK_GUIDANCE_SCRIPT);
+        await waitForSessionInstructionAudioToFinish();
+      } finally {
+        setIsStuckInstructionPlaying(false);
+        setIsStuckAudioComplete(true);
+      }
+    })();
+  };
+
+  const handleStuckDirectionSelect = (nextDirection) => {
+    if (nextDirection === stuckOriginalDirection) return;
+
+    setDirection(nextDirection);
+    setStuckSelectedDirection(nextDirection);
+  };
+
+  const handleContinueFromStuck = async () => {
+    if (!stuckSelectedDirection || !isStuckAudioComplete) return;
+
+    await resumeBlsRound("PLAYING");
+  };
+
   const handleCheckIn = (response) => {
     const entry = {
       response,
@@ -1827,11 +2209,7 @@ function SessionContent() {
     }
 
     if (response === "stuck") {
-      setSessionState("STUCK");
-      (async () => {
-        await playInstructionAudio("stuck", "It sounds like you may feel stuck. Take a breath, notice the room around you, and keep going with the processing.");
-        resumeBlsRound("PLAYING");
-      })();
+      openStuckDirectionModal();
       return;
     }
 
@@ -1841,20 +2219,20 @@ function SessionContent() {
     }
   };
 
-  const handleSuds = (rating) => {
+  const handleSuds = async (rating) => {
     setLatestSudsRating(rating);
 
     if (rating > 1) {
-      speak("Ok, let's continue with what you noticed about your original image.");
-      resumeBlsRound("PLAYING");
+      await speakAsync("Ok, let's continue with what you noticed about your original image.");
+      await resumeBlsRound("PLAYING");
     } else {
-      speak("Great job. Phase one is complete. Let's move to phase two and strengthen the positive belief.");
+      await speakAsync("Great job. This part is complete. Let's strengthen the positive belief.");
       setActiveBeliefIndex(0);
       setSessionState("PHASE2_VOC");
     }
   };
 
-  const handleVoc = (rating) => {
+  const handleVoc = async (rating) => {
     const activeBelief = positiveBeliefs[activeBeliefIndex] || DEFAULT_POSITIVE_BELIEF;
 
     setVocRatings((currentRatings) => ({
@@ -1866,19 +2244,19 @@ function SessionContent() {
       const nextBeliefIndex = activeBeliefIndex + 1;
 
       if (nextBeliefIndex < positiveBeliefs.length) {
-        speak("This belief is installed. Let's move to the next positive belief.");
+        await speakAsync("Good. Let's check in with the next positive belief.");
         setActiveBeliefIndex(nextBeliefIndex);
         setSessionState("PHASE2_VOC");
         return;
       }
 
-      speak("All positive beliefs are now installed. Phase two is complete.");
+      await speakAsync("Good. Let that settle for a moment.");
       setSessionState("PHASE2_COMPLETE");
       return;
     }
 
-    speak(`${POSITIVE_REINFORCEMENT_SCRIPT} ${PHASE2_INSTALLATION_SCRIPT.replace("[POSITIVE BELIEF]", activeBelief)}`);
-    resumeBlsRound("PHASE2_BLS");
+    await speakAsync(`${POSITIVE_REINFORCEMENT_SCRIPT} ${PHASE2_INSTALLATION_SCRIPT.replace("[POSITIVE BELIEF]", activeBelief)}`);
+    await resumeBlsRound("PHASE2_BLS");
   };
 
   const handlePhase2Notice = (response) => {
@@ -1920,13 +2298,10 @@ function SessionContent() {
     timerPausedBlsRef.current = false;
     setIsPaused(false);
     setSessionState("CALM_PLACE");
-    playInstructionAudio(
-      "calmPlace",
-      "Please bring up your pincode and spend a minute finding that nice feeling in the body."
-    );
+    playCalmPlaceInstruction();
   };
 
-  const handleBodyScan = (status) => {
+  const handleBodyScan = async (status) => {
     if (status === "clear") {
       setBodyScanHistory((currentHistory) => [
         ...currentHistory,
@@ -1937,7 +2312,7 @@ function SessionContent() {
           createdAt: new Date().toISOString(),
         },
       ]);
-      speak("Good. Your body scan is clear. Phase three is complete.");
+      await speakAsync("Good. Your body scan is clear. This part is complete.");
       setSessionState("PHASE3_COMPLETE");
       return;
     }
@@ -1952,18 +2327,18 @@ function SessionContent() {
           createdAt: new Date().toISOString(),
         },
       ]);
-      speak("That's okay. Take a moment to notice your body, then we will use another short round of bilateral stimulation.");
-      resumeBlsRound("PHASE3_BLS");
+      await speakAsync("That's okay. Take a moment to notice your body, then we will use another short round of bilateral stimulation.");
+      await resumeBlsRound("PHASE3_BLS");
       return;
     }
 
     setBodySensationLocation("");
     setBodySensationDescription("");
-    speak("Notice where you feel that sensation, and describe it briefly.");
+    await speakAsync(SENSATION_PRESENT_GUIDANCE_SCRIPT);
     setSessionState("PHASE3_SENSATION");
   };
 
-  const handleSensationContinue = () => {
+  const handleSensationContinue = async () => {
     const location = bodySensationLocation.trim();
     const description = bodySensationDescription.trim();
 
@@ -1976,11 +2351,25 @@ function SessionContent() {
         createdAt: new Date().toISOString(),
       },
     ]);
-    speak("Let's process that body sensation with another bilateral stimulation round.");
-    resumeBlsRound("PHASE3_BLS");
+    await speakAsync("Let's process that body sensation with another bilateral stimulation round.");
+    await resumeBlsRound("PHASE3_BLS");
   };
 
   const activePositiveBelief = positiveBeliefs[activeBeliefIndex] || DEFAULT_POSITIVE_BELIEF;
+
+  useEffect(() => {
+    if (sessionState !== "PHASE2_VOC") return;
+
+    speakAsync(
+      `Now I would like you to again look back at the original image and put it together with "${activePositiveBelief}". How true does this feel in the body? 1 is not true and 7 is true.`
+    );
+  }, [activePositiveBelief, sessionState]);
+
+  useEffect(() => {
+    if (sessionState !== "PHASE3_BODY_SCAN") return;
+
+    speakAsync(BODY_SCAN_GUIDANCE_SCRIPT);
+  }, [sessionState]);
 
   useEffect(() => {
     if (sessionState === "INTRO" && !isTimerRunning && latestSudsRating === null) {
@@ -2162,9 +2551,36 @@ function SessionContent() {
     vocRatings,
   ]);
 
-  const currentPos = getNextPos(isRight);
+  const targetPos = getNextPos(isRight);
+  const currentPos = pausedVisualPos || targetPos;
   const movementTransform = getMovementTransform(isRight);
+  const isPlainBall = selectedIcon?.id === DEFAULT_BILATERAL_SELECTIONS.icon;
+  const isPlainBackground = selectedEnv?.id === DEFAULT_BILATERAL_SELECTIONS.environment;
+  const sessionScreenTextStyle = isPlainBackground
+    ? { color: "rgba(0,0,0,0.9)" }
+    : { textShadow: "0 1px 5px rgba(0,0,0,0.2)" };
+  const sessionScreenTitleStyle = isPlainBackground
+    ? { color: "rgba(0,0,0,0.95)" }
+    : { textShadow: "0 2px 8px rgba(0,0,0,0.2)" };
+  const sessionScreenButtonStyle = isPlainBackground
+    ? {
+        background: "rgba(255,255,255,0.35)",
+        backdropFilter: "blur(12px)",
+        border: "1px solid rgba(0,0,0,0.9)",
+        color: "rgba(0,0,0,0.95)",
+      }
+    : {
+        background: "rgba(255,255,255,0.25)",
+        backdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.4)",
+        color: "rgba(255,255,255,0.95)",
+        textShadow: "0 1px 3px rgba(0,0,0,0.2)",
+      };
   const stimulusFacingTransform = `rotate(${movementTransform.rotation}deg) scaleX(${movementTransform.scaleX}) translateZ(0)`;
+  const activeMovementDurationMs = resumeVisualDurationMs || movementDurationMs;
+  const stimulusTransition = pausedVisualPos
+    ? "none"
+    : `transform ${activeMovementDurationMs}ms linear`;
   const depthTilt = isRight ? 1 : -1;
   const stimulusDepthTransform =
     direction === "vertical"
@@ -2182,7 +2598,7 @@ function SessionContent() {
     transformStyle: "preserve-3d",
     transformOrigin: "center",
     transition: "transform 260ms ease, filter 260ms ease",
-    filter: "drop-shadow(0 18px 18px rgba(0,0,0,0.26))",
+    filter: isPlainBall ? "none" : "drop-shadow(0 18px 18px rgba(0,0,0,0.26))",
   };
   const stimulusVisualStyle = {
     width: stimulusSize,
@@ -2196,6 +2612,63 @@ function SessionContent() {
     backfaceVisibility: "hidden",
     willChange: "transform",
   };
+
+  const handlePauseToggle = () => {
+    if (!BLS_ACTIVE_STATES.includes(sessionStateRef.current)) {
+      setIsPaused((paused) => !paused);
+      return;
+    }
+
+    if (isPausedRef.current) {
+      const snapshot = pausedMovementRef.current;
+      resumeFromPauseRef.current = Boolean(snapshot?.wasMoving && snapshot.remainingMs > 0);
+      setResumeVisualDurationMs(
+        snapshot?.wasMoving && snapshot.remainingMs > 0 ? snapshot.remainingMs : null
+      );
+      setPausedVisualPos(null);
+      setIsPaused(false);
+      return;
+    }
+
+    const targetRightSide =
+      movementTargetRightRef.current !== null
+        ? movementTargetRightRef.current
+        : isRightRef.current;
+    const targetPosition = getNextPos(targetRightSide);
+    const currentVisualPosition = getRenderedMovementPos(targetPosition);
+    const remainingMs = getMovementRemainingMs(currentVisualPosition, targetRightSide);
+
+    pausedMovementRef.current = {
+      targetRight: targetRightSide,
+      movementId: movementIdRef.current,
+      remainingMs,
+      wasMoving: movementStateRef.current === MOVEMENT_STATES.MOVING && remainingMs > 0,
+    };
+    resumeFromPauseRef.current = false;
+    setResumeVisualDurationMs(null);
+    setPausedVisualPos(currentVisualPosition);
+    setIsPaused(true);
+  };
+
+  const handleRoadmapAudioToggle = () => {
+    if (isRoadmapAudioPaused) {
+      resumeSessionInstructionAudio();
+      return;
+    }
+
+    if (isRoadmapAudioPlaying) {
+      pauseSessionInstructionAudio();
+      return;
+    }
+
+    playIntroAndRoadmapSummary();
+  };
+
+  const roadmapAudioButtonLabel = isRoadmapAudioPaused
+    ? "Resume Summary"
+    : isRoadmapAudioPlaying
+      ? "Pause Summary"
+      : "Play Summary";
 
   if (isLoading) {
     return (
@@ -2218,7 +2691,7 @@ function SessionContent() {
               You have a saved EMDR session. The timer was paused when you left, so it will continue from the saved remaining time.
             </p>
             <div className="mb-8 rounded-2xl bg-[#F6F7F4] p-5 text-left text-sm text-gray-700">
-              <p><strong>Phase:</strong> {pendingResumeSnapshot.sessionState?.replaceAll("_", " ") || "Saved session"}</p>
+              <p><strong>Status:</strong> {pendingResumeSnapshot.sessionState?.replaceAll("_", " ") || "Saved session"}</p>
               <p className="mt-2"><strong>Time remaining:</strong> {formatDuration(pendingResumeSnapshot.remainingSeconds || 0)}</p>
               {pendingResumeSnapshot.latestSudsRating !== null && pendingResumeSnapshot.latestSudsRating !== undefined && (
                 <p className="mt-2"><strong>Last SUDS:</strong> {pendingResumeSnapshot.latestSudsRating}/10</p>
@@ -2235,6 +2708,20 @@ function SessionContent() {
                 Start New
               </button>
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionState === "RESUMING_SAVED_SESSION") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
+            <p className="text-sm uppercase tracking-[0.2em] text-[#4A7C59] mb-3">Saved Session</p>
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-4">Restoring session</h2>
+            <p className="text-gray-700 leading-relaxed">
+              Your session will continue after the audio finishes.
+            </p>
           </div>
         </div>
       );
@@ -2275,28 +2762,16 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
-            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Phase 1 of EMDR</h2>
-            <div className="text-lg text-gray-700 space-y-4 mb-8 text-left bg-gray-50 p-6 rounded-2xl border border-gray-100">
-              <p><strong>1.</strong> You can play the intro and roadmap summary audio if you want.</p>
-              <p><strong>2.</strong> When you are ready, start bilateral stimulation.</p>
-            </div>
-            
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">EMDR Processing</h2>
+
             <div className="mb-8 rounded-2xl border border-[#DDE5DA] bg-[#F7FAF5] p-5 text-left">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-[#4A7C59] uppercase tracking-wider">Roadmap Audio</p>
-                  <p className="text-gray-700 mt-1">
-                    {roadmapAudioContext.roadmapSummaryAudioUrl
-                      ? "Generated roadmap summary audio is ready."
-                      : "Generated roadmap summary will use browser voice until an audio file is saved."}
-                  </p>
-                </div>
+              <div className="flex justify-center">
                 <button
                   type="button"
-                  onClick={isRoadmapAudioPlaying ? stopSessionInstructionAudio : playIntroAndRoadmapSummary}
+                  onClick={handleRoadmapAudioToggle}
                   className="px-5 py-3 rounded-xl bg-[#0F1912] text-white hover:bg-[#1f2d22] transition-all"
                 >
-                  {isRoadmapAudioPlaying ? "Stop Audio" : "Play Summary"}
+                  {roadmapAudioButtonLabel}
                 </button>
               </div>
             </div>
@@ -2311,9 +2786,14 @@ function SessionContent() {
 
             <button
               onClick={handleStart}
-              className="w-full py-4 text-white text-lg rounded-xl bg-[#4A7C59] hover:bg-[#3d6849] transition-all"
+              disabled={!hasRoadmapAudioCompleted || isRoadmapAudioPlaying || isRoadmapAudioPaused}
+              className={`w-full py-4 text-white text-lg rounded-xl transition-all ${
+                hasRoadmapAudioCompleted && !isRoadmapAudioPlaying && !isRoadmapAudioPaused
+                  ? "bg-[#4A7C59] hover:bg-[#3d6849]"
+                  : "bg-gray-300 cursor-not-allowed"
+              }`}
             >
-              I have the image in mind - Start
+              {hasRoadmapAudioCompleted ? "I have the image in mind - Start" : "Play Summary to Continue"}
             </button>
           </div>
         </div>
@@ -2340,14 +2820,60 @@ function SessionContent() {
     if (sessionState === "STUCK") {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
-          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
-            <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Stuck moment</h2>
-            <p className="text-gray-600 mb-8 leading-relaxed">
-              Listen to the stuck instructions. This popup will close and bilateral stimulation will continue automatically.
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-4">Feeling Stuck?</h2>
+            <p className="mx-auto mb-8 max-w-xl text-gray-700 leading-relaxed">
+              If you&apos;re not getting past a certain thought or feeling, try changing the direction of the bilateral stimulation.
             </p>
-            <div className="rounded-2xl bg-[#F6F7F4] p-5 text-sm text-gray-600">
-              Processing will resume after the instruction audio finishes.
+
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {DIRECTION_OPTIONS.map((option) => {
+                const isCurrentDirection = option.value === stuckOriginalDirection;
+                const isSelected = option.value === stuckSelectedDirection;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleStuckDirectionSelect(option.value)}
+                    disabled={isCurrentDirection}
+                    className={`rounded-xl border-2 px-4 py-4 text-base transition-all ${
+                      isCurrentDirection
+                        ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                        : isSelected
+                          ? "border-[#4A7C59] bg-[#4A7C59]/10 text-[#355d42]"
+                          : "border-gray-300 text-gray-700 hover:border-[#4A7C59] hover:bg-[#F6F7F4]"
+                    }`}
+                  >
+                    <span className="block font-medium">{option.label}</span>
+                    {isCurrentDirection && (
+                      <span className="mt-1 block text-xs uppercase tracking-[0.14em]">
+                        Current
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            <div className="mb-6 rounded-2xl bg-[#F6F7F4] p-5 text-sm text-gray-600">
+              {isStuckInstructionPlaying
+                ? "Guidance audio is playing. Choose a new direction, then continue after the audio finishes."
+                : "Choose a different direction, then continue the session."}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleContinueFromStuck}
+              disabled={!stuckSelectedDirection || !isStuckAudioComplete}
+              className={`w-full rounded-xl py-4 text-lg transition-all ${
+                stuckSelectedDirection && isStuckAudioComplete
+                  ? "bg-[#4A7C59] text-white hover:bg-[#3d6849]"
+                  : "cursor-not-allowed bg-gray-300 text-white"
+              }`}
+            >
+              Continue Session
+            </button>
           </div>
         </div>
       );
@@ -2360,8 +2886,8 @@ function SessionContent() {
             <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Rate your negative emotion</h2>
             <p className="text-gray-600 mb-4">Without any tapping or eye movement, just take a moment to notice what you see and feel. How disturbing is it right now?</p>
             <div className="mb-8 rounded-2xl bg-[#F6F7F4] p-4 text-left text-sm text-gray-700">
-              <p><strong>0 or 1:</strong> distress is almost gone, so this phase will finish and you will move to Phase 2.</p>
-              <p className="mt-2"><strong>2 to 10:</strong> some distress is still present, so another 34-set stimulation round will start.</p>
+              <p><strong>0 or 1:</strong> distress is almost gone.</p>
+              <p className="mt-2"><strong>2 to 10:</strong> some distress is still present.</p>
             </div>
             <div className="flex flex-wrap gap-3 justify-center">
               {[0,1,2,3,4,5,6,7,8,9,10].map(val => (
@@ -2383,8 +2909,8 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
-            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Phase 2</p>
-            <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Positive belief installation</h2>
+            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Positive Belief</p>
+            <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Strengthen the positive belief</h2>
             <div className="mb-6 rounded-2xl bg-[#F6F7F4] p-5 text-left">
               <p className="text-sm text-gray-500 mb-2">
                 Belief {activeBeliefIndex + 1} of {positiveBeliefs.length}
@@ -2396,8 +2922,8 @@ function SessionContent() {
             </p>
             <div className="mb-8 rounded-2xl bg-white border border-gray-100 p-4 text-left text-sm text-gray-700">
               <p><strong>1:</strong> does not feel true yet.</p>
-              <p className="mt-2"><strong>2 to 5:</strong> partly true, so another 34-set installation round will start.</p>
-              <p className="mt-2"><strong>6 or 7:</strong> belief installed, so the next belief or Phase 3 will load.</p>
+              <p className="mt-2"><strong>2 to 5:</strong> partly true.</p>
+              <p className="mt-2"><strong>6 or 7:</strong> feels strong enough for now.</p>
               <p className="mt-2">
                 {PHASE2_INSTALLATION_SCRIPT.replace("[POSITIVE BELIEF]", activePositiveBelief)}
               </p>
@@ -2422,7 +2948,7 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
-            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Phase 2</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Positive Belief</p>
             <h2 className="text-2xl font-serif text-[#0F1912] mb-4">What do you notice now?</h2>
             <p className="text-gray-600 mb-8">Is it positive or negative?</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2438,9 +2964,9 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
-            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Phase 2 Complete</h2>
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Positive Belief Strengthened</h2>
             <p className="text-gray-700 mb-6 leading-relaxed">
-              All positive beliefs reached 6 or 7 out of 7. The next step is the body scan phase.
+              Let the strengthened positive belief settle in your body.
             </p>
             <div className="mb-8 rounded-2xl bg-[#F6F7F4] p-4 text-left text-sm text-gray-700">
               {positiveBeliefs.map((belief) => (
@@ -2461,17 +2987,18 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-3xl w-full shadow-2xl text-center">
-            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Phase 3</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Body Scan</p>
             <h2 className="text-3xl font-serif text-[#0F1912] mb-4">Body Scan</h2>
             <p className="text-gray-700 mb-6 leading-relaxed">
-              Bring up the original image or memory you worked on, together with the positive belief. Then scan your body from head to toe.
+              Now spend a moment with your eyes closed. Look through your body from the top of your head, downwards.
+              If there are any sensations present, let me know.
             </p>
 
             <div className="mb-6 grid grid-cols-1 gap-4 text-left md:grid-cols-2">
               <div className="rounded-2xl bg-[#F6F7F4] p-5">
                 <p className="mb-2 text-xs uppercase tracking-[0.16em] text-gray-400">Original target</p>
                 <p className="text-sm text-gray-700">
-                  {targetContext.freezeFrame || targetContext.target || "Use the original image or memory from Phase 1. No new image is needed."}
+                  {targetContext.freezeFrame || targetContext.target || "Use the original image or memory. No new image is needed."}
                 </p>
               </div>
               <div className="rounded-2xl bg-[#F6F7F4] p-5">
@@ -2481,13 +3008,12 @@ function SessionContent() {
             </div>
 
             <p className="mb-8 text-gray-600">
-              Do you notice any remaining tension, pressure, pain, heaviness, tightness, or unusual sensation?
+              Are there any sensations present?
             </p>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <button onClick={() => handleBodyScan("clear")} className="py-4 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all text-lg">Clear / Neutral</button>
               <button onClick={() => handleBodyScan("sensation")} className="py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-lg">Sensation Present</button>
-              <button onClick={() => handleBodyScan("unsure")} className="py-4 border-2 border-amber-300 text-amber-800 rounded-xl hover:bg-amber-50 transition-all text-lg">Unsure</button>
             </div>
           </div>
         </div>
@@ -2500,9 +3026,10 @@ function SessionContent() {
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl">
             <div className="text-center">
               <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Body Scan</p>
-              <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Describe the sensation</h2>
+              <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Focus on the sensation</h2>
               <p className="text-gray-600 mb-8">
-                This is only to help focus the next stimulation round. A short answer is enough.
+                Look closely at that sensation, as if you have never seen anything like it before.
+                When you have it in mind and are ready, press start.
               </p>
             </div>
 
@@ -2532,7 +3059,7 @@ function SessionContent() {
                 Back
               </button>
               <button onClick={handleSensationContinue} className="flex-1 py-3 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all">
-                Continue BLS
+                Start
               </button>
             </div>
           </div>
@@ -2544,9 +3071,9 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
-            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Phase 3 Complete</h2>
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Body Scan Complete</h2>
             <p className="text-gray-700 mb-6 leading-relaxed">
-              Your body scan is clear. We will finish with Calm Place to close the session safely.
+              Your body scan is clear. Take a moment to notice that sense of calm.
             </p>
             {bodyScanHistory.length > 0 && (
               <div className="mb-8 max-h-44 overflow-y-auto rounded-2xl bg-[#F6F7F4] p-4 text-left text-sm text-gray-700">
@@ -2572,7 +3099,7 @@ function SessionContent() {
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
             <h2 className="text-3xl font-serif text-[#0F1912] mb-6">Calm Place</h2>
             <p className="text-xl text-gray-700 mb-8 leading-relaxed">
-              Please bring up your pincode and spend a minute finding that nice feeling in the body.
+              {buildCalmPlacePrompt(calmPlaceWord)}
             </p>
             <button onClick={() => setSessionState("END")} className="w-full py-4 bg-[#4A7C59] text-white text-lg rounded-xl hover:bg-[#3d6849] transition-all">
               Continue
@@ -2620,7 +3147,7 @@ function SessionContent() {
         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 500 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }} />
 
       {/* Moving element */}
-      {!isPaused && BLS_ACTIVE_STATES.includes(sessionState) && selectedIcon?.img && (
+      {BLS_ACTIVE_STATES.includes(sessionState) && selectedIcon?.img && (
         <div
           ref={movingElementRef}
           className="absolute z-30 pointer-events-none"
@@ -2630,11 +3157,11 @@ function SessionContent() {
             width: stimulusSize,
             height: stimulusSize,
             transform: `translate3d(${currentPos.x}px, ${currentPos.y}px, 0)`,
-            transition: `transform ${movementDurationMs}ms linear`,
+            transition: stimulusTransition,
             willChange: "transform",
             transformStyle: "preserve-3d",
             contain: "layout paint style",
-            filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.18))",
+            filter: isPlainBall ? "none" : "drop-shadow(0 6px 14px rgba(0,0,0,0.18))",
           }}
         >
           <div
@@ -2647,7 +3174,7 @@ function SessionContent() {
               <StimulusVisual
                 item={selectedIcon}
                 motionKey={isRight ? 1 : 0}
-                playDurationMs={movementDurationMs}
+                playDurationMs={activeMovementDurationMs}
                 style={stimulusVisualStyle}
               />
             </div>
@@ -2656,7 +3183,7 @@ function SessionContent() {
       )}
 
       {/* Reflection */}
-      {!isPaused && BLS_ACTIVE_STATES.includes(sessionState) && selectedIcon?.img && (
+      {!isPlainBall && BLS_ACTIVE_STATES.includes(sessionState) && selectedIcon?.img && (
         <div
           className="absolute z-10 pointer-events-none"
           style={{
@@ -2667,7 +3194,7 @@ function SessionContent() {
             transform: `translate3d(${currentPos.x}px, 0, 0) scaleY(-0.35) rotate(${movementTransform.rotation}deg) scaleX(${movementTransform.scaleX})`,
             opacity: 0.2,
             filter: "blur(4px)",
-            transition: `transform ${movementDurationMs}ms linear`,
+            transition: stimulusTransition,
             willChange: "transform",
           }}
         >
@@ -2675,7 +3202,7 @@ function SessionContent() {
             item={selectedIcon}
             ariaHidden
             motionKey={isRight ? 1 : 0}
-            playDurationMs={movementDurationMs}
+            playDurationMs={activeMovementDurationMs}
             style={stimulusVisualStyle}
           />
         </div>
@@ -2683,18 +3210,26 @@ function SessionContent() {
 
       {/* Header */}
       <div className="absolute top-7 left-9 z-40 pointer-events-none">
-        <p className="text-[9px] tracking-[2px] uppercase text-white/80 mb-1" style={{ textShadow: "0 1px 5px rgba(0,0,0,0.2)" }}>
+        <p
+          className={`text-[9px] tracking-[2px] uppercase mb-1 ${isPlainBackground ? "text-black/80" : "text-white/80"}`}
+          style={sessionScreenTextStyle}
+        >
           The UK InKind Psychology Clinic
         </p>
-        <h1 className="text-xl font-light italic text-white" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+        <h1
+          className={`text-xl font-light italic ${isPlainBackground ? "text-black" : "text-white"}`}
+          style={sessionScreenTitleStyle}
+        >
           {selectedEnv?.name || "Bilateral Stimulation"}
         </h1>
       </div>
 
       {/* Timer + counter */}
       {(isTimerRunning || BLS_ACTIVE_STATES.includes(sessionState)) && (
-        <div className="absolute top-8 right-9 z-40 pointer-events-none text-right text-sm italic text-white/80"
-          style={{ textShadow: "0 1px 5px rgba(0,0,0,0.2)" }}>
+        <div
+          className={`absolute top-8 right-9 z-40 pointer-events-none text-right text-sm italic ${isPlainBackground ? "text-black/80" : "text-white/80"}`}
+          style={sessionScreenTextStyle}
+        >
           {isTimerRunning && <div>Time {formatDuration(remainingSeconds)}</div>}
           {BLS_ACTIVE_STATES.includes(sessionState) && (
             <div>Set {Math.min(currentSet, TOTAL_SETS)} of {TOTAL_SETS}</div>
@@ -2705,15 +3240,9 @@ function SessionContent() {
       {/* Pause button */}
       {BLS_ACTIVE_STATES.includes(sessionState) && (
         <button
-          onClick={() => setIsPaused((p) => !p)}
+          onClick={handlePauseToggle}
           className="absolute bottom-8 right-9 z-40 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
-          style={{
-            background: "rgba(255,255,255,0.25)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.4)",
-            color: "rgba(255,255,255,0.95)",
-            textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }}
+          style={sessionScreenButtonStyle}
         >
           {isPaused ? "resume" : "pause"}
         </button>
@@ -2723,12 +3252,7 @@ function SessionContent() {
       <button
         onClick={() => router.back()}
         className="absolute bottom-8 left-9 z-40 px-6 py-3 rounded-full font-serif text-xs cursor-pointer transition-all"
-        style={{
-          background: "rgba(255,255,255,0.25)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.4)",
-          color: "rgba(255,255,255,0.95)",
-        }}
+        style={sessionScreenButtonStyle}
       >
         exit
       </button>

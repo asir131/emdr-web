@@ -369,12 +369,57 @@ const getSuggestedPositiveBelief = (negativeBelief) => {
 const createSummaryMarkup = ({ responses, beliefPairs }) => {
   const isAddictionFlow =
     responses[0] && responses[0].toLowerCase().includes("addiction");
+  const sessionType = (responses[0] || "").replace("Starting point: ", "").toLowerCase();
+  const emotionIndex = sessionType.includes("difficult emotions") ? 1 : 6;
+  const additionalEmotionIndex = sessionType.includes("difficult emotions") ? 6 : 7;
+  const bodyLocationIndex = sessionType.includes("difficult emotions") ? 7 : 8;
+  const negativeBeliefs = beliefPairs
+    .map((pair) => pair?.negative || pair?.negativeBelief || "")
+    .filter(Boolean);
+  const positiveBeliefs = beliefPairs
+    .map((pair) => pair?.positive || pair?.positiveBelief || "")
+    .filter(Boolean);
+  const target = responses[2] || responses[1] || "";
+  const targetPrefix = sessionType.includes("future")
+    ? "You are imagining"
+    : sessionType.includes("words")
+      ? "You are bringing to mind"
+      : sessionType.includes("difficult emotions")
+        ? "You are focusing on"
+        : "You are remembering";
+  const emotionParts = [
+    responses[emotionIndex],
+    responses[additionalEmotionIndex],
+  ].filter(Boolean);
+  const narrationParts = isAddictionFlow
+    ? [
+        responses[1] ? `You are focusing on ${responses[1]}.` : "",
+        responses[2] ? `The positive feeling is ${responses[2]}.` : "",
+        responses[4] ? `The thoughts connected with it are ${responses[4]}.` : "",
+        responses[5] ? `You notice it in ${responses[5]}.` : "",
+        responses[6] ? `The image or shape that comes to mind is ${responses[6]}.` : "",
+        "Now, when you are ready and have this in mind, press start.",
+      ]
+    : [
+        target ? `${targetPrefix} ${target}.` : "",
+        negativeBeliefs.length ? `The thoughts are ${negativeBeliefs.join(", ")}.` : "",
+        emotionParts.length ? `You are feeling ${emotionParts.join(", ")}.` : "",
+        responses[bodyLocationIndex] ? `It sits in ${responses[bodyLocationIndex]}.` : "",
+        positiveBeliefs.length
+          ? `The positive belief${positiveBeliefs.length > 1 ? "s are" : " is"} ${positiveBeliefs.join(", ")}.`
+          : "",
+        "Now, when you are ready and have this in mind, press start.",
+      ];
 
   return {
     startingPoint: responses[0]?.replace("Starting point: ", "") || "",
     target: responses[1] || "",
     freezeFrame: responses[2] || "",
     beliefPairs,
+    primaryEmotion: !isAddictionFlow ? responses[emotionIndex] || "" : "",
+    additionalEmotions: !isAddictionFlow ? responses[additionalEmotionIndex] || "" : "",
+    bodyLocation: !isAddictionFlow ? responses[bodyLocationIndex] || "" : responses[5] || "",
+    roadmapSummaryText: narrationParts.filter(Boolean).join(" "),
     isAddictionFlow,
     pfsRating: isAddictionFlow
       ? responses.find((item) => /^[0-9]$|^10$/.test(item || ""))

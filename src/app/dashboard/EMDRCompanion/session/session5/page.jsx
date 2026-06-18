@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStoredAuth } from "@/redux/authStorage";
 import { updateSessionProgress, checkSessionAccess } from "@/utils/sessionProgress";
+import { BILATERAL_INTRO_ROUTE } from "@/utils/bilateralIntroVideo";
 
 export default function Session5Page() {
   const router = useRouter();
@@ -113,7 +114,7 @@ export default function Session5Page() {
                 });
               }
 
-              router.push("/dashboard/resources/bilateral");
+              router.push(BILATERAL_INTRO_ROUTE);
             }}
             disabled={!videoCompleted}
             className="bg-[#41594d] hover:bg-[#354a3f] disabled:bg-stone-300 disabled:text-stone-500 disabled:shadow-none disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-medium transition-all shadow-lg active:scale-95 text-sm md:text-base"
