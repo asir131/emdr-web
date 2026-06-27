@@ -6,10 +6,16 @@ import { getBilateralIcons } from "@/components/dashboard/bilateral/VisualIconSe
 import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelector";
 import { Save, Play, MoveHorizontal, MoveVertical, MoveUpRight, MoveDownRight, Music, Check } from "lucide-react";
 import { useStoredAuth } from "@/redux/authStorage";
-import { updateSessionProgress, checkSessionAccess } from "@/utils/sessionProgress";
+import {
+  updateSessionProgress,
+  checkSessionAccess,
+  getRoadmapIntroVideoCompleted,
+  markRoadmapIntroVideoCompleted,
+} from "@/utils/sessionProgress";
 import {
   BILATERAL_INTRO_ROUTE,
   hasWatchedBilateralIntroVideo,
+  markBilateralIntroVideoWatched,
 } from "@/utils/bilateralIntroVideo";
 import {
   DEFAULT_BILATERAL_SELECTIONS,
@@ -132,10 +138,48 @@ export default function BilateralSettingsPage() {
 
   useEffect(() => {
     const activeJourneyId = localStorage.getItem("activeJourneyId") || "";
-    if (!hasWatchedBilateralIntroVideo(activeJourneyId)) {
-      router.replace(BILATERAL_INTRO_ROUTE);
+    if (!activeJourneyId) return;
+
+    if (hasWatchedBilateralIntroVideo(activeJourneyId)) {
+      if (token && baseUrl) {
+        markRoadmapIntroVideoCompleted({
+          baseUrl,
+          token,
+          journeyId: activeJourneyId,
+        });
+      }
+      return;
     }
-  }, [router]);
+
+    if (!token || !baseUrl) {
+      router.replace(BILATERAL_INTRO_ROUTE);
+      return;
+    }
+
+    let cancelled = false;
+    const checkRoadmapIntro = async () => {
+      const completed = await getRoadmapIntroVideoCompleted({
+        baseUrl,
+        token,
+        journeyId: activeJourneyId,
+      });
+
+      if (cancelled) return;
+
+      if (completed) {
+        markBilateralIntroVideoWatched(activeJourneyId);
+        return;
+      }
+
+      router.replace(BILATERAL_INTRO_ROUTE);
+    };
+
+    checkRoadmapIntro();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, router, token]);
 
   useEffect(() => {
     if (!token || !baseUrl) return;

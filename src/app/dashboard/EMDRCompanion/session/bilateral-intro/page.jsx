@@ -2,6 +2,11 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useStoredAuth } from "@/redux/authStorage";
+import {
+  getRoadmapIntroVideoCompleted,
+  markRoadmapIntroVideoCompleted,
+} from "@/utils/sessionProgress";
 import {
   BILATERAL_INTRO_VIDEO_SRC,
   BILATERAL_SETTINGS_ROUTE,
@@ -11,19 +16,48 @@ import {
 
 export default function BilateralIntroVideoPage() {
   const router = useRouter();
+  const { token } = useStoredAuth();
   const videoRef = useRef(null);
   const maxTimeWatched = useRef(0);
   const [videoCompleted, setVideoCompleted] = useState(false);
   const [activeJourneyId, setActiveJourneyId] = useState("");
+  const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VITE_BASE_URL || "";
+  const baseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 
   useEffect(() => {
     const journeyId = localStorage.getItem("activeJourneyId") || "";
     setActiveJourneyId(journeyId);
 
     if (hasWatchedBilateralIntroVideo(journeyId)) {
+      if (journeyId && token && baseUrl) {
+        markRoadmapIntroVideoCompleted({ baseUrl, token, journeyId });
+      }
       router.replace(BILATERAL_SETTINGS_ROUTE);
+      return;
     }
-  }, [router]);
+
+    if (!journeyId || !token || !baseUrl) return;
+
+    let cancelled = false;
+    const checkRoadmapIntroStatus = async () => {
+      const completed = await getRoadmapIntroVideoCompleted({
+        baseUrl,
+        token,
+        journeyId,
+      });
+
+      if (!cancelled && completed) {
+        markBilateralIntroVideoWatched(journeyId);
+        router.replace(BILATERAL_SETTINGS_ROUTE);
+      }
+    };
+
+    checkRoadmapIntroStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, router, token]);
 
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
@@ -39,9 +73,16 @@ export default function BilateralIntroVideoPage() {
     }
   };
 
-  const continueToBilateralSettings = () => {
+  const continueToBilateralSettings = async () => {
     if (!videoCompleted) return;
     markBilateralIntroVideoWatched(activeJourneyId);
+    if (activeJourneyId && token && baseUrl) {
+      await markRoadmapIntroVideoCompleted({
+        baseUrl,
+        token,
+        journeyId: activeJourneyId,
+      });
+    }
     router.push(BILATERAL_SETTINGS_ROUTE);
   };
 

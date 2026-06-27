@@ -10,10 +10,6 @@ export default function ThunderLightningPage() {
       title: "Thunder and Lightning",
       src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800399/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800376028.mov",
     },
-    {
-      title: "Thunder and Lightning Copy",
-      src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1777834560/my-emdr/media/media_69c709d3cb049607feb74d9e_1777834486531.mp4",
-    },
   ];
 
   return (
@@ -33,7 +29,7 @@ export default function ThunderLightningPage() {
 
         {/* Content Frame */}
         <div className="bg-white/50 backdrop-blur-md rounded-[40px] border border-white/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] p-6 md:p-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-8">
             {videos.map((video, index) => (
               <motion.div
                 key={index}

@@ -17,8 +17,7 @@ export default function EmotionsLanding() {
       description:
         "A grounding technique to help when emotions feel overwhelming.",
       icon: <Music className="w-3.5 h-3.5" />,
-      audioSrc:
-        "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776800288/my-emdr/media/media_69c70af6f992b944bccd41a9_1776800278495.m4a",
+      audioSrc: "/voice/Spiral Technique.mp4",
     },
     {
       id: "video",
@@ -28,6 +27,15 @@ export default function EmotionsLanding() {
         "A grounding technique to help when emotions feel overwhelming.",
       icon: <Video className="w-3.5 h-3.5" />,
       link: "/dashboard/emotions/thunder-lightning",
+    },
+    {
+      id: "mountain",
+      type: "Video",
+      title: "Mountain",
+      description:
+        "A visual grounding exercise to help when emotions feel overwhelming.",
+      icon: <Video className="w-3.5 h-3.5" />,
+      link: "/dashboard/emotions/mountain",
     },
     {
       id: "emdr",

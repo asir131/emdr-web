@@ -86,27 +86,32 @@ const thankingMindVideos = [
   {
     id: "monster",
     title: "Monster",
-    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776791734/my-emdr/media/media_69c70af6f992b944bccd41a9_1776791676326.mov",
+    src: "/thoughts-videos/monster.mov",
   },
   {
     id: "pop-up-ads",
     title: "Pop Up Ads",
-    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776791935/my-emdr/media/media_69c70af6f992b944bccd41a9_1776791915398.mp4",
+    src: "/thoughts-videos/pop-up-ads.mov",
   },
   {
     id: "riptide",
     title: "Riptide",
-    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776792355/my-emdr/media/media_69c70af6f992b944bccd41a9_1776792303312.mov",
+    src: "/thoughts-videos/riptide.mov",
+  },
+  {
+    id: "the-algorithm",
+    title: "The Algorithm",
+    src: "/thoughts-videos/the-algorithm.mov",
   },
   {
     id: "gps-mind",
     title: "The GPS Mind - Try This!",
-    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776792471/my-emdr/media/media_69c70af6f992b944bccd41a9_1776792426860.mov",
+    src: "/thoughts-videos/the-gps-mind-try-this.mov",
   },
   {
     id: "museum-security-guard",
-    title: "The Museum Security Guard",
-    src: "https://res.cloudinary.com/dbglkfj2z/video/upload/v1776792563/my-emdr/media/media_69c70af6f992b944bccd41a9_1776792509804.mov",
+    title: "The Museum Security Guard - intrusive or distressing thoughts.",
+    src: "/thoughts-videos/the-museum-security-guard-intrusive-or-distressing-thoughts.mp4",
   },
 ];
 
@@ -140,7 +145,7 @@ const thoughtsData = [
     description: "A guided practice in observing and counting your thoughts.",
     icon: <Music className="w-4 h-4" />,
     status: "active",
-    audioSrc: "/when you are ready (1).wav",
+    audioSrc: "/voice/thoughts homework.m4a",
   },
   {
     id: 3,
@@ -202,7 +207,10 @@ const MindfulnessArticle = ({ onClose }) => {
 
         <div className="my-16 flex justify-center">
           <video
-            controls
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full max-w-[700px] rounded-[24px] shadow-xl border-2 border-white"
             src="https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801087/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801065133.mp4"
           />
@@ -250,7 +258,10 @@ const MindfulnessArticle = ({ onClose }) => {
 
         <div className="my-16 flex justify-center">
           <video
-            controls
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full max-w-[700px] rounded-[24px] shadow-xl border-2 border-white"
             src="https://res.cloudinary.com/dbglkfj2z/video/upload/v1776801133/my-emdr/media/media_69c70af6f992b944bccd41a9_1776801117511.mp4"
           />
@@ -279,6 +290,7 @@ const MindfulnessArticle = ({ onClose }) => {
 export default function ThoughtsPage() {
   const { user, token } = useStoredAuth();
   const audioRef = useRef(null);
+  const mindfulnessAudioRef = useRef(null);
   const modalVideoRef = useRef(null);
   const [activeAudioId, setActiveAudioId] = useState(null);
   const [progressByUser, setProgressByUser] = useState({});
@@ -339,6 +351,7 @@ export default function ThoughtsPage() {
 
   useEffect(() => {
     const currentAudio = audioRef.current;
+    const currentMindfulnessAudio = mindfulnessAudioRef.current;
     const currentModalVideo = modalVideoRef.current;
 
     return () => {
@@ -346,11 +359,47 @@ export default function ThoughtsPage() {
         currentAudio.pause();
       }
 
+      if (currentMindfulnessAudio) {
+        currentMindfulnessAudio.pause();
+      }
+
       if (currentModalVideo) {
         currentModalVideo.pause();
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!showMindfulnessArticle) {
+      if (mindfulnessAudioRef.current) {
+        mindfulnessAudioRef.current.pause();
+        mindfulnessAudioRef.current = null;
+      }
+      return;
+    }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setActiveAudioId(null);
+    }
+
+    const audio = new Audio("/voice/Jörgen Mindfulness.m4a");
+    audio.loop = true;
+    audio.preload = "auto";
+    mindfulnessAudioRef.current = audio;
+
+    audio.play().catch((error) => {
+      console.error("Unable to play mindfulness audio:", error);
+    });
+
+    return () => {
+      audio.pause();
+      if (mindfulnessAudioRef.current === audio) {
+        mindfulnessAudioRef.current = null;
+      }
+    };
+  }, [showMindfulnessArticle]);
 
   const resetModalVideoState = () => {
     setIsModalVideoPlaying(false);
@@ -565,6 +614,18 @@ export default function ThoughtsPage() {
     }
   };
 
+  const handleCloseVideoModal = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (modalVideoRef.current) {
+      modalVideoRef.current.pause();
+    }
+
+    resetModalVideoState();
+    setActiveVideoModal(null);
+  };
+
   const handleItemClick = (item) => {
     if (item.id === 2) {
       handleAudioToggle(item);
@@ -727,9 +788,18 @@ export default function ThoughtsPage() {
       </div>
 
       {activeVideoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F1912]/55 px-4 py-8 backdrop-blur-sm">
-          <div className="w-full max-w-6xl rounded-[32px] border border-white/20 bg-[#F8F5EE]/95 p-6 shadow-[0_30px_100px_rgba(15,25,18,0.2)] md:p-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0F1912]/55 px-4 pb-6 pt-16 backdrop-blur-sm">
+          <div className="relative max-h-[82vh] w-full max-w-6xl overflow-y-auto rounded-[32px] border border-white/20 bg-[#F8F5EE]/95 p-6 shadow-[0_30px_100px_rgba(15,25,18,0.2)] md:p-8">
+            <button
+              type="button"
+              aria-label="Close video library"
+              onPointerDown={handleCloseVideoModal}
+              onClick={handleCloseVideoModal}
+              className="absolute right-4 top-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#4A7C59] text-white shadow-lg transition-transform hover:scale-105"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <div className="mb-6 flex items-start justify-between gap-4 pr-14">
               <div>
                 <p className="mb-2 text-sm font-semibold uppercase tracking-[0.24em] text-[#4A7C59]">
                   {activeVideoModal === "mindfulness" ? "Mindfulness" : "Thanking the Mind"}
@@ -741,19 +811,6 @@ export default function ThoughtsPage() {
                   Watch each video in order. Finishing one unlocks the next.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (modalVideoRef.current) {
-                    modalVideoRef.current.pause();
-                  }
-                  resetModalVideoState();
-                  setActiveVideoModal(null);
-                }}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#4A7C59] shadow-sm transition-transform hover:scale-105"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
 
             <div className="mb-5 rounded-2xl bg-[#EDF5EF] px-4 py-3 text-sm font-medium text-[#355743]">

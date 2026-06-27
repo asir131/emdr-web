@@ -44,6 +44,53 @@ export const updateSessionProgress = async ({
   }
 };
 
+export const getRoadmapIntroVideoCompleted = async ({
+  baseUrl,
+  token,
+  journeyId,
+}) => {
+  if (!journeyId || !token || !baseUrl) return false;
+
+  try {
+    const response = await fetch(`${baseUrl}/api/session-progress/${journeyId}`, {
+      cache: "no-store",
+      headers: getApiHeaders({
+        Authorization: `Bearer ${token}`,
+      }),
+    });
+    const result = await response.json();
+
+    return Boolean(result?.success && result?.data?.roadmapIntroVideoCompleted);
+  } catch (error) {
+    console.error("Error checking roadmap intro video status:", error);
+    return false;
+  }
+};
+
+export const markRoadmapIntroVideoCompleted = async ({
+  baseUrl,
+  token,
+  journeyId,
+}) => {
+  if (!journeyId || !token || !baseUrl) return { success: false };
+
+  try {
+    const response = await fetch(
+      `${baseUrl}/api/session-progress/${journeyId}/roadmap-intro-video`,
+      {
+        method: "PATCH",
+        headers: getApiHeaders({
+          Authorization: `Bearer ${token}`,
+        }),
+      }
+    );
+    return response.json();
+  } catch (error) {
+    console.error("Error marking roadmap intro video completed:", error);
+    return { success: false, message: error.message };
+  }
+};
+
 /**
  * Checks if a user has access to a specific session based on their progress.
  * 

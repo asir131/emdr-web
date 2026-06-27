@@ -7,8 +7,13 @@ import { getBilateralSounds } from "@/components/dashboard/bilateral/SoundSelect
 import { useStoredAuth } from "@/redux/authStorage";
 import { analyzeAudioUrl } from "@/utils/bilateralAudioAnalysis";
 import {
+  getRoadmapIntroVideoCompleted,
+  markRoadmapIntroVideoCompleted,
+} from "@/utils/sessionProgress";
+import {
   BILATERAL_INTRO_ROUTE,
   hasWatchedBilateralIntroVideo,
+  markBilateralIntroVideoWatched,
 } from "@/utils/bilateralIntroVideo";
 import {
   DEFAULT_BILATERAL_SELECTIONS,
@@ -51,12 +56,24 @@ const PHASE2_INSTALLATION_SCRIPT =
 const POSITIVE_REINFORCEMENT_SCRIPT = "Lovely! Keep going.";
 const NEGATIVE_BRANCH_SCRIPT = "OK good, keep going.";
 const STUCK_GUIDANCE_SCRIPT =
-  "If you're feeling stuck, try changing the direction of the bilateral stimulation. You can switch to any of the available directions below: Horizontal, Vertical, Diagonal Up, Diagonal Down. Choose the direction that feels most comfortable and continue the session. Sometimes a different movement pattern can help you move past a thought or feeling that feels stuck.";
+  "Direction change. You can switch the bilateral stimulation to any of the available directions below: Horizontal, Vertical, Diagonal Up, or Diagonal Down. Choose the direction that feels most comfortable, then continue the session.";
+const STUCK_CLICK_SCRIPT = "Ok, go with where you left off.";
 const BODY_SCAN_GUIDANCE_SCRIPT =
   "Now I want you to spend a moment with your eyes closed. Look through your body from the top of your head, downwards. If there are any sensations present let me know.";
 const SENSATION_PRESENT_GUIDANCE_SCRIPT =
   "OK, look closely at that sensation, as if you have never seen anything like it before. Focus on it and try not to let your mind wander this time. When you have it in mind and are ready press start.";
-
+const MAX_BODY_SENSATION_ADDITIONAL_CYCLES = 4;
+const CLIENT_VOICE_PROMPTS = {
+  changingConnected: "/voice/is it still changing and connected.wav",
+  changing: [
+    "/voice/okgood go with that.wav",
+    "/voice/go with where you left off.wav",
+  ],
+  stuck: "/voice/go with where you left off.wav",
+  notChanging: "/voice/lets go back to the original image.wav",
+  okContinue: "/voice/ok lets continue.wav",
+  ready: "/voice/when you are ready.wav",
+};
 const normalizeDirection = (value) => {
   if (value === "left-right") return "horizontal";
   return VALID_DIRECTIONS.includes(value) ? value : "horizontal";
@@ -85,6 +102,21 @@ const formatDuration = (totalSeconds) => {
   const seconds = safeSeconds % 60;
 
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+const readStoredEmdrSession = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return JSON.parse(localStorage.getItem("lastEMDRSession") || "null");
+  } catch {
+    return null;
+  }
+};
+
+const firstText = (...values) => {
+  const match = values.find((value) => typeof value === "string" && value.trim());
+  return match ? match.trim() : "";
 };
 
 function speak(text) {
@@ -138,21 +170,6 @@ const waitForSpeechSynthesisIdle = () =>
 
     check();
   });
-
-const readStoredEmdrSession = () => {
-  if (typeof window === "undefined") return null;
-
-  try {
-    return JSON.parse(localStorage.getItem("lastEMDRSession") || "null");
-  } catch {
-    return null;
-  }
-};
-
-const firstText = (...values) => {
-  const match = values.find((value) => typeof value === "string" && value.trim());
-  return match ? match.trim() : "";
-};
 
 const isOldRoadmapSummaryText = (value) => {
   const text = firstText(value);
@@ -666,7 +683,7 @@ function SessionContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [instructionAudioMap, setInstructionAudioMap] = useState({});
   
-  // State machine: INTRO -> PLAYING -> CHECK_IN -> STUCK -> SUDS -> PHASE2_VOC -> PHASE2_BLS -> PHASE2_NOTICE -> PHASE2_COMPLETE -> PHASE3_BODY_SCAN -> PHASE3_SENSATION -> PHASE3_BLS -> PHASE3_COMPLETE -> TIMER_CLOSURE_SUDS -> CALM_PLACE -> END
+  // State machine: INTRO -> PLAYING -> CHECK_IN -> STUCK -> SUDS -> PHASE2_VOC -> PHASE2_BLS -> PHASE2_NOTICE -> PHASE2_COMPLETE -> PHASE3_BODY_SCAN -> PHASE3_SENSATION -> PHASE3_BLS -> PHASE3_SENSATION_FEEL_NOW -> PHASE3_SENSATION_LEFT -> PHASE3_COMPLETE -> TIMER_CLOSURE_SUDS -> CALM_PLACE -> END
   const [sessionState, setSessionState] = useState("INTRO");
   const [duration, setDuration] = useState(60); // 60 or 90 minutes
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -698,6 +715,8 @@ function SessionContent() {
   const [targetContext, setTargetContext] = useState({ target: "", freezeFrame: "" });
   const [bodySensationLocation, setBodySensationLocation] = useState("");
   const [bodySensationDescription, setBodySensationDescription] = useState("");
+  const [bodySensationCurrentFeeling, setBodySensationCurrentFeeling] = useState("");
+  const [bodySensationAdditionalCycleCount, setBodySensationAdditionalCycleCount] = useState(0);
   const [bodyScanHistory, setBodyScanHistory] = useState([]);
   const [isRight, setIsRight] = useState(false);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -725,10 +744,63 @@ function SessionContent() {
 
   useEffect(() => {
     const activeJourneyId = localStorage.getItem("activeJourneyId") || "";
-    if (!hasWatchedBilateralIntroVideo(activeJourneyId)) {
-      router.replace(BILATERAL_INTRO_ROUTE);
+    const hasResumeState = Boolean(getSavedSessionSnapshot() || getStoredProcessingSessionId());
+
+    if (!activeJourneyId) {
+      return;
     }
-  }, [router]);
+
+    if (hasResumeState) {
+      if (token && baseUrl) {
+        markRoadmapIntroVideoCompleted({
+          baseUrl,
+          token,
+          journeyId: activeJourneyId,
+        });
+      }
+      return;
+    }
+
+    if (hasWatchedBilateralIntroVideo(activeJourneyId)) {
+      if (token && baseUrl) {
+        markRoadmapIntroVideoCompleted({
+          baseUrl,
+          token,
+          journeyId: activeJourneyId,
+        });
+      }
+      return;
+    }
+
+    if (!token || !baseUrl) {
+      router.replace(BILATERAL_INTRO_ROUTE);
+      return;
+    }
+
+    let cancelled = false;
+    const checkRoadmapIntro = async () => {
+      const completed = await getRoadmapIntroVideoCompleted({
+        baseUrl,
+        token,
+        journeyId: activeJourneyId,
+      });
+
+      if (cancelled) return;
+
+      if (completed) {
+        markBilateralIntroVideoWatched(activeJourneyId);
+        return;
+      }
+
+      router.replace(BILATERAL_INTRO_ROUTE);
+    };
+
+    checkRoadmapIntro();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, router, token]);
   const audioContextRef = useRef(null);
   const audioStopTimersRef = useRef([]);
   const timerIntervalRef = useRef(null);
@@ -746,6 +818,8 @@ function SessionContent() {
   const isRightRef = useRef(false);
   const currentSetRef = useRef(1);
   const endpointHitCountRef = useRef(0);
+  const isProcessingBodySensationRef = useRef(false);
+  const bodySensationAdditionalCycleCountRef = useRef(0);
   const movementIdRef = useRef(0);
   const hitIdRef = useRef(0);
   const lastPlayedMovementIdRef = useRef(null);
@@ -908,7 +982,7 @@ function SessionContent() {
         await speakAsync(roadmapAudioContext.roadmapSummaryText);
       }
       if (!roadmapAudioContext.roadmapSummaryAudioUrl && !summaryIncludesReadyScript) {
-        await speakAsync(READY_SCRIPT);
+        await playInstructionAudio("ready", READY_SCRIPT);
       }
       setHasRoadmapAudioCompleted(true);
     } catch (error) {
@@ -927,12 +1001,19 @@ function SessionContent() {
   };
 
   const playInstructionAudio = async (key, fallbackText) => {
-    const audioUrl = instructionAudioMap[key];
+    const audioSources = CLIENT_VOICE_PROMPTS[key] || instructionAudioMap[key];
+    const audioUrls = Array.isArray(audioSources)
+      ? audioSources.filter(Boolean)
+      : audioSources
+        ? [audioSources]
+        : [];
 
-    if (audioUrl) {
+    if (audioUrls.length > 0) {
       try {
         stopSessionInstructionAudio();
-        await playAudioFile(audioUrl);
+        for (const audioUrl of audioUrls) {
+          await playAudioFile(audioUrl);
+        }
         return;
       } catch (error) {
         console.warn(`Instruction audio "${key}" failed; using browser voice fallback.`, error);
@@ -1243,6 +1324,14 @@ function SessionContent() {
     setBodyScanHistory(Array.isArray(snapshot.bodyScanHistory) ? snapshot.bodyScanHistory : []);
     setBodySensationLocation(snapshot.bodySensationDraft?.location || "");
     setBodySensationDescription(snapshot.bodySensationDraft?.description || "");
+    setBodySensationCurrentFeeling(snapshot.bodySensationDraft?.currentFeeling || "");
+    const savedBodySensationCycleCount = Math.max(
+      0,
+      Number(snapshot.bodySensationDraft?.additionalCycleCount) || 0
+    );
+    bodySensationAdditionalCycleCountRef.current = savedBodySensationCycleCount;
+    setBodySensationAdditionalCycleCount(savedBodySensationCycleCount);
+    isProcessingBodySensationRef.current = Boolean(snapshot.bodySensationDraft?.isProcessing);
     setTimerClosureSudsRating(
       Number.isFinite(Number(snapshot.timerClosureSudsRating))
         ? Number(snapshot.timerClosureSudsRating)
@@ -1946,13 +2035,17 @@ function SessionContent() {
         movementStateRef.current = MOVEMENT_STATES.STOPPED;
         movementTargetRightRef.current = null;
         if (sessionState === "PHASE3_BLS") {
-          setSessionState("PHASE3_BODY_SCAN");
+          setSessionState(
+            isProcessingBodySensationRef.current
+              ? "PHASE3_SENSATION_FEEL_NOW"
+              : "PHASE3_BODY_SCAN"
+          );
         } else if (sessionState === "PHASE2_BLS") {
           setSessionState("PHASE2_NOTICE");
           speak("What do you notice now?");
         } else {
           setSessionState("CHECK_IN");
-          speak("Is it changing and still connected?");
+          playInstructionAudio("changingConnected", "Is it changing and still connected?");
         }
         return true;
       }
@@ -2167,8 +2260,8 @@ function SessionContent() {
 
     (async () => {
       try {
-        await playInstructionAudio("stuck", STUCK_GUIDANCE_SCRIPT);
-        await waitForSessionInstructionAudioToFinish();
+        stopSessionInstructionAudio();
+        await speakAsync(STUCK_GUIDANCE_SCRIPT);
       } finally {
         setIsStuckInstructionPlaying(false);
         setIsStuckAudioComplete(true);
@@ -2209,13 +2302,18 @@ function SessionContent() {
     }
 
     if (response === "stuck") {
-      openStuckDirectionModal();
+      (async () => {
+        await playInstructionAudio("stuck", "Ok, go with where you left off.");
+        resumeBlsRound("PLAYING");
+      })();
       return;
     }
 
     if (response === "not-changing") {
-      playInstructionAudio("notChanging", "Ok, let's go back to the original image. Without any tapping or eye movement, just take a moment to notice what you see and feel. Rate your negative emotion on a scale of 0 to 10.");
-      setSessionState("SUDS");
+      (async () => {
+        await playInstructionAudio("notChanging", "Ok, let's go back to the original image. Without any tapping or eye movement, just take a moment to notice what you see and feel. Rate your negative emotion on a scale of 0 to 10.");
+        setSessionState("SUDS");
+      })();
     }
   };
 
@@ -2223,9 +2321,10 @@ function SessionContent() {
     setLatestSudsRating(rating);
 
     if (rating > 1) {
-      await speakAsync("Ok, let's continue with what you noticed about your original image.");
+      await playInstructionAudio("okContinue", "Ok, let's continue with what you noticed about your original image.");
       await resumeBlsRound("PLAYING");
     } else {
+      stopSessionInstructionAudio();
       await speakAsync("Great job. This part is complete. Let's strengthen the positive belief.");
       setActiveBeliefIndex(0);
       setSessionState("PHASE2_VOC");
@@ -2342,6 +2441,10 @@ function SessionContent() {
     const location = bodySensationLocation.trim();
     const description = bodySensationDescription.trim();
 
+    isProcessingBodySensationRef.current = true;
+    bodySensationAdditionalCycleCountRef.current = 0;
+    setBodySensationAdditionalCycleCount(0);
+    setBodySensationCurrentFeeling("");
     setBodyScanHistory((currentHistory) => [
       ...currentHistory,
       {
@@ -2351,7 +2454,47 @@ function SessionContent() {
         createdAt: new Date().toISOString(),
       },
     ]);
-    await speakAsync("Let's process that body sensation with another bilateral stimulation round.");
+    await speakAsync(
+      "Let's process that body sensation with another bilateral stimulation round. Focus your mind on that sensation and try not to let your mind wander."
+    );
+    await resumeBlsRound("PHASE3_BLS");
+  };
+
+  const handleSensationFeelingContinue = async () => {
+    await speakAsync("Is there anything left in that sensation?");
+    setSessionState("PHASE3_SENSATION_LEFT");
+  };
+
+  const returnToBodyScanAfterSensation = async () => {
+    isProcessingBodySensationRef.current = false;
+    bodySensationAdditionalCycleCountRef.current = 0;
+    setBodySensationAdditionalCycleCount(0);
+    setBodySensationCurrentFeeling("");
+    setBodySensationLocation("");
+    setBodySensationDescription("");
+    setSessionState("PHASE3_BODY_SCAN");
+  };
+
+  const handleSensationLeft = async (hasSensationLeft) => {
+    if (!hasSensationLeft) {
+      await returnToBodyScanAfterSensation();
+      return;
+    }
+
+    const completedAdditionalCycles = bodySensationAdditionalCycleCountRef.current;
+
+    if (completedAdditionalCycles >= MAX_BODY_SENSATION_ADDITIONAL_CYCLES) {
+      await returnToBodyScanAfterSensation();
+      return;
+    }
+
+    const nextAdditionalCycle = completedAdditionalCycles + 1;
+    bodySensationAdditionalCycleCountRef.current = nextAdditionalCycle;
+    setBodySensationAdditionalCycleCount(nextAdditionalCycle);
+    setBodySensationCurrentFeeling("");
+    await speakAsync(
+      "Focus your mind on that sensation and try not to let your mind wander."
+    );
     await resumeBlsRound("PHASE3_BLS");
   };
 
@@ -2369,6 +2512,12 @@ function SessionContent() {
     if (sessionState !== "PHASE3_BODY_SCAN") return;
 
     speakAsync(BODY_SCAN_GUIDANCE_SCRIPT);
+  }, [sessionState]);
+
+  useEffect(() => {
+    if (sessionState !== "PHASE3_SENSATION_FEEL_NOW") return;
+
+    speakAsync("How does that sensation feel now?");
   }, [sessionState]);
 
   useEffect(() => {
@@ -2402,6 +2551,9 @@ function SessionContent() {
       bodySensationDraft: {
         location: bodySensationLocation,
         description: bodySensationDescription,
+        currentFeeling: bodySensationCurrentFeeling,
+        additionalCycleCount: bodySensationAdditionalCycleCount,
+        isProcessing: isProcessingBodySensationRef.current,
       },
       stimulation: {
         direction,
@@ -2446,6 +2598,8 @@ function SessionContent() {
     activePositiveBelief,
     baseUrl,
     bodyScanHistory,
+    bodySensationAdditionalCycleCount,
+    bodySensationCurrentFeeling,
     bodySensationDescription,
     bodySensationLocation,
     checkInHistory,
@@ -2803,14 +2957,14 @@ function SessionContent() {
     if (sessionState === "CHECK_IN") {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
-          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-3xl w-full shadow-2xl text-center">
             <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Check-In</p>
             <h2 className="text-2xl font-serif text-[#0F1912] mb-3">Is it changing and still connected?</h2>
-            <p className="text-gray-600 mb-8">Choose the closest answer. SUDS rating appears only if it is not changing.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button onClick={() => handleCheckIn("changing")} className="py-4 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all text-lg">Changing</button>
-              <button onClick={() => handleCheckIn("not-changing")} className="py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-lg">Not Changing</button>
-              <button onClick={() => handleCheckIn("stuck")} className="py-4 border-2 border-amber-300 text-amber-800 rounded-xl hover:bg-amber-50 transition-all text-lg">Stuck</button>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <button onClick={() => handleCheckIn("changing")} className="py-4 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all text-lg whitespace-nowrap">Changing</button>
+              <button onClick={() => handleCheckIn("not-changing")} className="py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-lg whitespace-nowrap">Not Changing</button>
+              <button onClick={() => handleCheckIn("stuck")} className="py-4 border-2 border-amber-300 text-amber-800 rounded-xl hover:bg-amber-50 transition-all text-lg whitespace-nowrap">Stuck</button>
+              <button onClick={openStuckDirectionModal} className="py-4 border-2 border-[#4A7C59] text-[#4A7C59] rounded-xl hover:bg-[#F6F7F4] transition-all text-lg whitespace-nowrap">Direction Change</button>
             </div>
           </div>
         </div>
@@ -2821,9 +2975,9 @@ function SessionContent() {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
           <div className="bg-white rounded-3xl p-8 md:p-12 max-w-2xl w-full shadow-2xl text-center">
-            <h2 className="text-3xl font-serif text-[#0F1912] mb-4">Feeling Stuck?</h2>
+            <h2 className="text-3xl font-serif text-[#0F1912] mb-4">Direction Change</h2>
             <p className="mx-auto mb-8 max-w-xl text-gray-700 leading-relaxed">
-              If you&apos;re not getting past a certain thought or feeling, try changing the direction of the bilateral stimulation.
+              Choose a new direction for the bilateral stimulation.
             </p>
 
             <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2858,7 +3012,7 @@ function SessionContent() {
 
             <div className="mb-6 rounded-2xl bg-[#F6F7F4] p-5 text-sm text-gray-600">
               {isStuckInstructionPlaying
-                ? "Guidance audio is playing. Choose a new direction, then continue after the audio finishes."
+                ? "Direction change audio is playing. Choose a new direction, then continue after the audio finishes."
                 : "Choose a different direction, then continue the session."}
             </div>
 
@@ -3067,6 +3221,63 @@ function SessionContent() {
       );
     }
 
+    if (sessionState === "PHASE3_SENSATION_FEEL_NOW") {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl">
+            <div className="text-center">
+              <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Body Scan</p>
+              <h2 className="text-2xl font-serif text-[#0F1912] mb-4">How does that sensation feel now?</h2>
+              <p className="text-gray-600 mb-8">
+                Stay with the same sensation you were processing.
+              </p>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-gray-700">What do you notice now?</span>
+              <textarea
+                value={bodySensationCurrentFeeling}
+                onChange={(event) => setBodySensationCurrentFeeling(event.target.value)}
+                placeholder="e.g. lighter, smaller, moving, gone, still tight"
+                className="h-28 w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#4A7C59]"
+              />
+            </label>
+
+            <button onClick={handleSensationFeelingContinue} className="mt-8 w-full py-3 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all">
+              Continue
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (sessionState === "PHASE3_SENSATION_LEFT") {
+      const hasReachedSensationCycleLimit =
+        bodySensationAdditionalCycleCount >= MAX_BODY_SENSATION_ADDITIONAL_CYCLES;
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-xl w-full shadow-2xl text-center">
+            <p className="text-sm uppercase tracking-[0.2em] text-gray-400 mb-3">Body Scan</p>
+            <h2 className="text-2xl font-serif text-[#0F1912] mb-4">Is there anything left in that sensation?</h2>
+            {hasReachedSensationCycleLimit && (
+              <p className="mb-6 rounded-2xl bg-[#F6F7F4] p-4 text-sm text-gray-600">
+                This sensation has had four additional processing rounds. Continue with the body scan and look for any remaining sensations elsewhere.
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <button onClick={() => handleSensationLeft(false)} className="py-4 bg-[#4A7C59] text-white rounded-xl hover:bg-[#3d6849] transition-all text-lg">
+                No
+              </button>
+              <button onClick={() => handleSensationLeft(true)} className="py-4 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all text-lg">
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     if (sessionState === "PHASE3_COMPLETE") {
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 font-serif">
@@ -3207,22 +3418,6 @@ function SessionContent() {
           />
         </div>
       )}
-
-      {/* Header */}
-      <div className="absolute top-7 left-9 z-40 pointer-events-none">
-        <p
-          className={`text-[9px] tracking-[2px] uppercase mb-1 ${isPlainBackground ? "text-black/80" : "text-white/80"}`}
-          style={sessionScreenTextStyle}
-        >
-          The UK InKind Psychology Clinic
-        </p>
-        <h1
-          className={`text-xl font-light italic ${isPlainBackground ? "text-black" : "text-white"}`}
-          style={sessionScreenTitleStyle}
-        >
-          {selectedEnv?.name || "Bilateral Stimulation"}
-        </h1>
-      </div>
 
       {/* Timer + counter */}
       {(isTimerRunning || BLS_ACTIVE_STATES.includes(sessionState)) && (
