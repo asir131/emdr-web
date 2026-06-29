@@ -119,57 +119,35 @@ const firstText = (...values) => {
   return match ? match.trim() : "";
 };
 
-function speak(text) {
-  if (typeof window !== "undefined" && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+const requestNaturalVoiceAudio = async ({
+  baseUrl,
+  token,
+  text,
+  cacheNamespace,
+}) => {
+  if (!baseUrl || !token || !text?.trim()) {
+    throw new Error("Natural voice service is not configured.");
   }
-}
 
-function speakAsync(text) {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined" || !window.speechSynthesis || !text) {
-      resolve();
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.onend = resolve;
-    utterance.onerror = resolve;
-    window.speechSynthesis.speak(utterance);
+  const response = await fetch(`${baseUrl}/api/voice/tts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: text.trim(), cacheNamespace }),
   });
-}
+  const result = await response.json().catch(() => null);
 
-const waitForSpeechSynthesisIdle = () =>
-  new Promise((resolve) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      resolve();
-      return;
-    }
+  if (!response.ok || !result?.success || !result?.data?.audioUrl) {
+    const errorCode = result?.error?.code ? ` ${result.error.code}` : "";
+    const errorMessage =
+      result?.message || result?.error?.message || "Natural voice audio is unavailable.";
+    throw new Error(`Voice API ${response.status}${errorCode}: ${errorMessage}`);
+  }
 
-    const startedAt = Date.now();
-    const check = () => {
-      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-        resolve();
-        return;
-      }
-
-      if (Date.now() - startedAt > 120000) {
-        resolve();
-        return;
-      }
-
-      window.setTimeout(check, 100);
-    };
-
-    check();
-  });
+  return result.data.audioUrl;
+};
 
 const isOldRoadmapSummaryText = (value) => {
   const text = firstText(value);
@@ -189,10 +167,10 @@ const buildLocalRoadmapSummaryText = (latestSession, summary, beliefPairs) => {
   if (isAddictionFlow) {
     return [
       firstText(summary.target, responses[1])
-        ? `You are focusing on ${firstText(summary.target, responses[1])}.`
+        ? `You are gently focusing on ${firstText(summary.target, responses[1])}.`
         : "",
       firstText(responses[2])
-        ? `The positive feeling is ${firstText(responses[2])}.`
+        ? `You have described the feeling as ${firstText(responses[2])}.`
         : "",
       firstText(responses[4])
         ? `The thoughts connected with it are ${firstText(responses[4])}.`
@@ -201,9 +179,9 @@ const buildLocalRoadmapSummaryText = (latestSession, summary, beliefPairs) => {
         ? `You notice it in ${firstText(summary.bodyLocation, responses[5])}.`
         : "",
       firstText(responses[6])
-        ? `The image or shape that comes to mind is ${firstText(responses[6])}.`
+        ? `Hold the image of ${firstText(responses[6])} lightly in mind.`
         : "",
-      "Now, when you are ready and have this in mind, press start.",
+      "There is no need to force anything. When you feel ready, press start and simply notice what comes.",
     ].filter(Boolean).join(" ");
   }
 
@@ -229,13 +207,17 @@ const buildLocalRoadmapSummaryText = (latestSession, summary, beliefPairs) => {
 
   return [
     target ? `${targetPrefix} ${target}.` : "",
-    negativeBeliefs.length ? `The thoughts are ${negativeBeliefs.join(", ")}.` : "",
-    emotions.length ? `You are feeling ${emotions.join(", ")}.` : "",
-    bodyLocation ? `It sits in ${bodyLocation}.` : "",
-    positiveBeliefs.length
-      ? `The positive belief${positiveBeliefs.length > 1 ? "s are" : " is"} ${positiveBeliefs.join(", ")}.`
+    emotions.length
+      ? `You described feeling ${emotions.join(", ")}, and it makes sense that this experience still feels important.`
       : "",
-    "Now, when you are ready and have this in mind, press start.",
+    bodyLocation ? `You notice some of this in ${bodyLocation}.` : "",
+    negativeBeliefs.length
+      ? `The difficult thought${negativeBeliefs.length > 1 ? "s" : ""} you noticed ${negativeBeliefs.length > 1 ? "were" : "was"}: ${negativeBeliefs.join(", ")}.`
+      : "",
+    positiveBeliefs.length
+      ? `You are moving towards the belief${positiveBeliefs.length > 1 ? "s" : ""}: ${positiveBeliefs.join(", ")}.`
+      : "",
+    "You do not need to force anything. When you feel ready, press start and gently notice what comes.",
   ].filter(Boolean).join(" ");
 };
 
@@ -256,7 +238,13 @@ const getStoredRoadmapAudioContext = () => {
     summary.narration
   );
   const hasOldStoredRoadmapSummaryText = isOldRoadmapSummaryText(storedRoadmapSummaryText);
-  const shouldUseStoredAudio = !hasOldStoredRoadmapSummaryText;
+  const roadmapSummaryAudioProvider = firstText(
+    summary.roadmapSummaryAudioProvider,
+    latestSession?.roadmapSummaryAudioProvider,
+    audio.roadmapSummaryAudioProvider
+  );
+  const shouldUseStoredAudio =
+    !hasOldStoredRoadmapSummaryText && roadmapSummaryAudioProvider === "elevenlabs";
 
   return {
     introAudioUrl: firstText(
@@ -279,9 +267,12 @@ const getStoredRoadmapAudioContext = () => {
         )
       : "",
     roadmapSummaryText: firstText(
-      hasOldStoredRoadmapSummaryText ? localRoadmapSummaryText : storedRoadmapSummaryText,
+      hasOldStoredRoadmapSummaryText || roadmapSummaryAudioProvider !== "elevenlabs"
+        ? localRoadmapSummaryText
+        : storedRoadmapSummaryText,
       localRoadmapSummaryText
     ),
+    roadmapSummaryAudioProvider,
   };
 };
 
@@ -695,6 +686,7 @@ function SessionContent() {
     introAudioUrl: "",
     roadmapSummaryAudioUrl: "",
     roadmapSummaryText: "",
+    roadmapSummaryAudioProvider: "",
   });
   const [isRoadmapAudioPlaying, setIsRoadmapAudioPlaying] = useState(false);
   const [isRoadmapAudioPaused, setIsRoadmapAudioPaused] = useState(false);
@@ -738,6 +730,10 @@ function SessionContent() {
   const lastMovementTickAtRef = useRef(0);
   const audioRef = useRef(null);
   const sessionInstructionAudioRef = useRef(null);
+  const naturalVoiceUrlCacheRef = useRef(new Map());
+  const naturalVoiceRequestCacheRef = useRef(new Map());
+  const naturalVoicePlaybackRef = useRef(new Map());
+  const instructionPlaybackRef = useRef(new Map());
   const audioPoolRef = useRef([]);
   const audioPoolIndexRef = useRef(0);
   const trackAudioRef = useRef(null);
@@ -845,25 +841,26 @@ function SessionContent() {
   const introFallbackText =
     "The bilateral stimulation will start now. Your roadmap is ready. When you start, let your mind wander. Your thoughts may go forward or backwards in time.";
 
-  const stopSessionInstructionAudio = () => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+  const cancelActiveSessionAudio = () => {
+    const activeAudio = sessionInstructionAudioRef.current;
+    if (activeAudio) {
+      if (typeof activeAudio.cancelSessionPlayback === "function") {
+        activeAudio.cancelSessionPlayback();
+      } else {
+        activeAudio.pause();
+        sessionInstructionAudioRef.current = null;
+      }
     }
+  };
 
-    if (sessionInstructionAudioRef.current) {
-      sessionInstructionAudioRef.current.pause();
-      sessionInstructionAudioRef.current = null;
-    }
+  const stopSessionInstructionAudio = () => {
+    cancelActiveSessionAudio();
 
     setIsRoadmapAudioPlaying(false);
     setIsRoadmapAudioPaused(false);
   };
 
   const pauseSessionInstructionAudio = () => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.pause();
-    }
-
     if (sessionInstructionAudioRef.current) {
       sessionInstructionAudioRef.current.pause();
     }
@@ -873,10 +870,6 @@ function SessionContent() {
   };
 
   const resumeSessionInstructionAudio = () => {
-    if (typeof window !== "undefined" && window.speechSynthesis?.paused) {
-      window.speechSynthesis.resume();
-    }
-
     if (sessionInstructionAudioRef.current?.paused) {
       sessionInstructionAudioRef.current.play().catch((error) => {
         console.warn("Unable to resume roadmap audio.", error);
@@ -897,29 +890,47 @@ function SessionContent() {
       const audio = new Audio(audioUrl);
       sessionInstructionAudioRef.current = audio;
       audio.preload = "auto";
+      let isSettled = false;
 
       const cleanup = () => {
         audio.removeEventListener("ended", handleEnded);
         audio.removeEventListener("error", handleError);
+        delete audio.cancelSessionPlayback;
       };
       const handleEnded = () => {
+        if (isSettled) return;
+        isSettled = true;
         cleanup();
         if (sessionInstructionAudioRef.current === audio) {
           sessionInstructionAudioRef.current = null;
         }
-        resolve();
+        resolve({ cancelled: false });
       };
       const handleError = () => {
+        if (isSettled) return;
+        isSettled = true;
         cleanup();
         if (sessionInstructionAudioRef.current === audio) {
           sessionInstructionAudioRef.current = null;
         }
         reject(new Error("Unable to play audio file."));
       };
+      audio.cancelSessionPlayback = () => {
+        if (isSettled) return;
+        isSettled = true;
+        cleanup();
+        audio.pause();
+        if (sessionInstructionAudioRef.current === audio) {
+          sessionInstructionAudioRef.current = null;
+        }
+        resolve({ cancelled: true });
+      };
 
       audio.addEventListener("ended", handleEnded, { once: true });
       audio.addEventListener("error", handleError, { once: true });
       audio.play().catch((error) => {
+        if (isSettled) return;
+        isSettled = true;
         cleanup();
         if (sessionInstructionAudioRef.current === audio) {
           sessionInstructionAudioRef.current = null;
@@ -927,6 +938,92 @@ function SessionContent() {
         reject(error);
       });
     });
+
+  const getNaturalVoiceUrl = async (text, cacheNamespace = "session-prompt") => {
+    const cacheKey = `${cacheNamespace}:${text}`;
+    const cachedUrl = naturalVoiceUrlCacheRef.current.get(cacheKey);
+    if (cachedUrl) return cachedUrl;
+
+    let pendingRequest = naturalVoiceRequestCacheRef.current.get(cacheKey);
+    if (!pendingRequest) {
+      pendingRequest = requestNaturalVoiceAudio({
+        baseUrl,
+        token,
+        text,
+        cacheNamespace,
+      });
+      naturalVoiceRequestCacheRef.current.set(cacheKey, pendingRequest);
+    }
+
+    try {
+      const audioUrl = await pendingRequest;
+      naturalVoiceUrlCacheRef.current.set(cacheKey, audioUrl);
+      return audioUrl;
+    } finally {
+      naturalVoiceRequestCacheRef.current.delete(cacheKey);
+    }
+  };
+
+  const playNaturalVoice = async (text, cacheNamespace = "session-prompt") => {
+    const playbackKey = `${cacheNamespace}:${text}`;
+    const activePlayback = naturalVoicePlaybackRef.current.get(playbackKey);
+    if (activePlayback) return activePlayback;
+
+    cancelActiveSessionAudio();
+
+    const playback = (async () => {
+      try {
+        const audioUrl = await getNaturalVoiceUrl(text, cacheNamespace);
+        const playbackResult = await playAudioFile(audioUrl);
+        return !playbackResult?.cancelled;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[ElevenLabs:${cacheNamespace}] Natural voice unavailable; continuing without voice. ${message}`
+        );
+        return false;
+      } finally {
+        naturalVoicePlaybackRef.current.delete(playbackKey);
+      }
+    })();
+
+    naturalVoicePlaybackRef.current.set(playbackKey, playback);
+    return playback;
+  };
+
+  useEffect(() => {
+    if (isLoading || !baseUrl || !token) return;
+
+    const promptsToPrefetch = [];
+    const introAudioUrl = roadmapAudioContext.introAudioUrl || instructionAudioMap.intro || "";
+    if (!introAudioUrl) {
+      promptsToPrefetch.push([introFallbackText, "session-intro"]);
+    }
+    if (
+      !roadmapAudioContext.roadmapSummaryAudioUrl &&
+      roadmapAudioContext.roadmapSummaryText
+    ) {
+      promptsToPrefetch.push([
+        roadmapAudioContext.roadmapSummaryText,
+        "roadmap-summary",
+      ]);
+    }
+
+    promptsToPrefetch.forEach(([text, cacheNamespace]) => {
+      void getNaturalVoiceUrl(text, cacheNamespace).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[ElevenLabs:${cacheNamespace}] Voice prefetch failed. ${message}`);
+      });
+    });
+  }, [
+    baseUrl,
+    isLoading,
+    instructionAudioMap.intro,
+    roadmapAudioContext.introAudioUrl,
+    roadmapAudioContext.roadmapSummaryAudioUrl,
+    roadmapAudioContext.roadmapSummaryText,
+    token,
+  ]);
 
   const waitForSessionInstructionAudioToFinish = async () => {
     const activeAudio = sessionInstructionAudioRef.current;
@@ -954,7 +1051,6 @@ function SessionContent() {
       });
     }
 
-    await waitForSpeechSynthesisIdle();
   };
 
   const playIntroAndRoadmapSummary = async () => {
@@ -969,7 +1065,7 @@ function SessionContent() {
       if (introAudioUrl) {
         await playAudioFile(introAudioUrl);
       } else {
-        await speakAsync(introFallbackText);
+        await playNaturalVoice(introFallbackText, "session-intro");
       }
 
       const summaryIncludesReadyScript = /when you are ready/i.test(
@@ -979,19 +1075,23 @@ function SessionContent() {
       if (roadmapAudioContext.roadmapSummaryAudioUrl) {
         await playAudioFile(roadmapAudioContext.roadmapSummaryAudioUrl);
       } else if (roadmapAudioContext.roadmapSummaryText) {
-        await speakAsync(roadmapAudioContext.roadmapSummaryText);
+        await playNaturalVoice(roadmapAudioContext.roadmapSummaryText, "roadmap-summary");
       }
       if (!roadmapAudioContext.roadmapSummaryAudioUrl && !summaryIncludesReadyScript) {
         await playInstructionAudio("ready", READY_SCRIPT);
       }
       setHasRoadmapAudioCompleted(true);
     } catch (error) {
-      console.warn("Using browser voice fallback for roadmap audio.", error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `Roadmap audio failed; trying ElevenLabs once more without interrupting the session. ${message}`
+      );
       const fallbackText = `${introFallbackText} ${roadmapAudioContext.roadmapSummaryText || ""}`.trim();
-      await speakAsync(
+      await playNaturalVoice(
         /when you are ready/i.test(fallbackText)
           ? fallbackText
-          : `${fallbackText} ${READY_SCRIPT}`.trim()
+          : `${fallbackText} ${READY_SCRIPT}`.trim(),
+        "roadmap-summary-fallback"
       );
       setHasRoadmapAudioCompleted(true);
     } finally {
@@ -1000,7 +1100,8 @@ function SessionContent() {
     }
   };
 
-  const playInstructionAudio = async (key, fallbackText) => {
+  const runInstructionAudio = async (key, fallbackText) => {
+    cancelActiveSessionAudio();
     const audioSources = CLIENT_VOICE_PROMPTS[key] || instructionAudioMap[key];
     const audioUrls = Array.isArray(audioSources)
       ? audioSources.filter(Boolean)
@@ -1010,24 +1111,39 @@ function SessionContent() {
 
     if (audioUrls.length > 0) {
       try {
-        stopSessionInstructionAudio();
         for (const audioUrl of audioUrls) {
-          await playAudioFile(audioUrl);
+          const playbackResult = await playAudioFile(audioUrl);
+          if (playbackResult?.cancelled) return false;
         }
-        return;
+        return true;
       } catch (error) {
-        console.warn(`Instruction audio "${key}" failed; using browser voice fallback.`, error);
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `Instruction audio "${key}" failed; using ElevenLabs fallback. ${message}`
+        );
       }
     }
 
-    await speakAsync(fallbackText);
+    return playNaturalVoice(fallbackText, `instruction-${key}`);
+  };
+
+  const playInstructionAudio = async (key, fallbackText) => {
+    const playbackKey = `${key}:${fallbackText}`;
+    const activePlayback = instructionPlaybackRef.current.get(playbackKey);
+    if (activePlayback) return activePlayback;
+
+    const playback = runInstructionAudio(key, fallbackText).finally(() => {
+      instructionPlaybackRef.current.delete(playbackKey);
+    });
+    instructionPlaybackRef.current.set(playbackKey, playback);
+    return playback;
   };
 
   const playCalmPlaceInstruction = async () => {
     const fallbackText = buildCalmPlacePrompt(calmPlaceWord);
 
     if (firstText(calmPlaceWord)) {
-      await speakAsync(fallbackText);
+      await playNaturalVoice(fallbackText, "calm-place-personalised");
       return;
     }
 
@@ -1285,6 +1401,7 @@ function SessionContent() {
   };
 
   const handleResumeSavedSession = async () => {
+    stopSessionInstructionAudio();
     const snapshot = pendingResumeSnapshot;
     if (!snapshot) return;
 
@@ -1351,7 +1468,7 @@ function SessionContent() {
 
     setSessionState(shouldResumeActiveSession ? "RESUMING_SAVED_SESSION" : nextState);
 
-    await speakAsync("Your saved session has been restored.");
+    await playNaturalVoice("Your saved session has been restored.", "session-restored");
     await waitForSessionInstructionAudioToFinish();
 
     if (shouldResumeActiveSession) {
@@ -1387,11 +1504,13 @@ function SessionContent() {
   };
 
   const handleGoToCalmPlace = () => {
+    stopSessionInstructionAudio();
     setSessionState("CALM_PLACE");
     playCalmPlaceInstruction();
   };
 
   const handleEndSafely = () => {
+    stopSessionInstructionAudio();
     playInstructionAudio(
       "endSession",
       "Let's end safely now. Return to the room, notice where you are, and use Calm Place if you need it."
@@ -2042,7 +2161,7 @@ function SessionContent() {
           );
         } else if (sessionState === "PHASE2_BLS") {
           setSessionState("PHASE2_NOTICE");
-          speak("What do you notice now?");
+          void playNaturalVoice("What do you notice now?", "phase2-notice");
         } else {
           setSessionState("CHECK_IN");
           playInstructionAudio("changingConnected", "Is it changing and still connected?");
@@ -2261,7 +2380,7 @@ function SessionContent() {
     (async () => {
       try {
         stopSessionInstructionAudio();
-        await speakAsync(STUCK_GUIDANCE_SCRIPT);
+        await playNaturalVoice(STUCK_GUIDANCE_SCRIPT, "direction-change");
       } finally {
         setIsStuckInstructionPlaying(false);
         setIsStuckAudioComplete(true);
@@ -2295,43 +2414,48 @@ function SessionContent() {
 
     if (response === "changing") {
       (async () => {
-        await playInstructionAudio("changing", "Ok good, go with that or go with where you left off.");
-        resumeBlsRound("PLAYING");
+        const completed = await playInstructionAudio("changing", "Ok good, go with that or go with where you left off.");
+        if (completed) resumeBlsRound("PLAYING");
       })();
       return;
     }
 
     if (response === "stuck") {
       (async () => {
-        await playInstructionAudio("stuck", "Ok, go with where you left off.");
-        resumeBlsRound("PLAYING");
+        const completed = await playInstructionAudio("stuck", "Ok, go with where you left off.");
+        if (completed) resumeBlsRound("PLAYING");
       })();
       return;
     }
 
     if (response === "not-changing") {
       (async () => {
-        await playInstructionAudio("notChanging", "Ok, let's go back to the original image. Without any tapping or eye movement, just take a moment to notice what you see and feel. Rate your negative emotion on a scale of 0 to 10.");
-        setSessionState("SUDS");
+        const completed = await playInstructionAudio("notChanging", "Ok, let's go back to the original image. Without any tapping or eye movement, just take a moment to notice what you see and feel. Rate your negative emotion on a scale of 0 to 10.");
+        if (completed) setSessionState("SUDS");
       })();
     }
   };
 
   const handleSuds = async (rating) => {
+    stopSessionInstructionAudio();
     setLatestSudsRating(rating);
 
     if (rating > 1) {
-      await playInstructionAudio("okContinue", "Ok, let's continue with what you noticed about your original image.");
-      await resumeBlsRound("PLAYING");
+      const completed = await playInstructionAudio("okContinue", "Ok, let's continue with what you noticed about your original image.");
+      if (completed) await resumeBlsRound("PLAYING");
     } else {
-      stopSessionInstructionAudio();
-      await speakAsync("Great job. This part is complete. Let's strengthen the positive belief.");
+      const completed = await playNaturalVoice(
+        "Great job. This part is complete. Let's strengthen the positive belief.",
+        "phase1-complete"
+      );
+      if (!completed) return;
       setActiveBeliefIndex(0);
       setSessionState("PHASE2_VOC");
     }
   };
 
   const handleVoc = async (rating) => {
+    stopSessionInstructionAudio();
     const activeBelief = positiveBeliefs[activeBeliefIndex] || DEFAULT_POSITIVE_BELIEF;
 
     setVocRatings((currentRatings) => ({
@@ -2343,22 +2467,35 @@ function SessionContent() {
       const nextBeliefIndex = activeBeliefIndex + 1;
 
       if (nextBeliefIndex < positiveBeliefs.length) {
-        await speakAsync("Good. Let's check in with the next positive belief.");
+        const completed = await playNaturalVoice(
+          "Good. Let's check in with the next positive belief.",
+          "voc-next-belief"
+        );
+        if (!completed) return;
         setActiveBeliefIndex(nextBeliefIndex);
         setSessionState("PHASE2_VOC");
         return;
       }
 
-      await speakAsync("Good. Let that settle for a moment.");
+      const completed = await playNaturalVoice(
+        "Good. Let that settle for a moment.",
+        "voc-complete"
+      );
+      if (!completed) return;
       setSessionState("PHASE2_COMPLETE");
       return;
     }
 
-    await speakAsync(`${POSITIVE_REINFORCEMENT_SCRIPT} ${PHASE2_INSTALLATION_SCRIPT.replace("[POSITIVE BELIEF]", activeBelief)}`);
+    const completed = await playNaturalVoice(
+      `${POSITIVE_REINFORCEMENT_SCRIPT} ${PHASE2_INSTALLATION_SCRIPT.replace("[POSITIVE BELIEF]", activeBelief)}`,
+      "voc-installation"
+    );
+    if (!completed) return;
     await resumeBlsRound("PHASE2_BLS");
   };
 
   const handlePhase2Notice = (response) => {
+    stopSessionInstructionAudio();
     const activeBelief = positiveBeliefs[activeBeliefIndex] || DEFAULT_POSITIVE_BELIEF;
     const entry = {
       response,
@@ -2376,12 +2513,13 @@ function SessionContent() {
     }
 
     (async () => {
-      await playInstructionAudio("negativeBranch", NEGATIVE_BRANCH_SCRIPT);
-      resumeBlsRound("PLAYING");
+      const completed = await playInstructionAudio("negativeBranch", NEGATIVE_BRANCH_SCRIPT);
+      if (completed) resumeBlsRound("PLAYING");
     })();
   };
 
   const handleTimerClosureSuds = (rating) => {
+    stopSessionInstructionAudio();
     setLatestSudsRating(rating);
     setTimerClosureSudsRating(rating);
     setCheckInHistory((currentHistory) => [
@@ -2401,6 +2539,7 @@ function SessionContent() {
   };
 
   const handleBodyScan = async (status) => {
+    stopSessionInstructionAudio();
     if (status === "clear") {
       setBodyScanHistory((currentHistory) => [
         ...currentHistory,
@@ -2411,7 +2550,11 @@ function SessionContent() {
           createdAt: new Date().toISOString(),
         },
       ]);
-      await speakAsync("Good. Your body scan is clear. This part is complete.");
+      const completed = await playNaturalVoice(
+        "Good. Your body scan is clear. This part is complete.",
+        "body-scan-clear"
+      );
+      if (!completed) return;
       setSessionState("PHASE3_COMPLETE");
       return;
     }
@@ -2426,18 +2569,27 @@ function SessionContent() {
           createdAt: new Date().toISOString(),
         },
       ]);
-      await speakAsync("That's okay. Take a moment to notice your body, then we will use another short round of bilateral stimulation.");
+      const completed = await playNaturalVoice(
+        "That's okay. Take a moment to notice your body, then we will use another short round of bilateral stimulation.",
+        "body-scan-unsure"
+      );
+      if (!completed) return;
       await resumeBlsRound("PHASE3_BLS");
       return;
     }
 
     setBodySensationLocation("");
     setBodySensationDescription("");
-    await speakAsync(SENSATION_PRESENT_GUIDANCE_SCRIPT);
+    const completed = await playNaturalVoice(
+      SENSATION_PRESENT_GUIDANCE_SCRIPT,
+      "body-scan-sensation"
+    );
+    if (!completed) return;
     setSessionState("PHASE3_SENSATION");
   };
 
   const handleSensationContinue = async () => {
+    stopSessionInstructionAudio();
     const location = bodySensationLocation.trim();
     const description = bodySensationDescription.trim();
 
@@ -2454,14 +2606,21 @@ function SessionContent() {
         createdAt: new Date().toISOString(),
       },
     ]);
-    await speakAsync(
-      "Let's process that body sensation with another bilateral stimulation round. Focus your mind on that sensation and try not to let your mind wander."
+    const completed = await playNaturalVoice(
+      "Let's process that body sensation with another bilateral stimulation round. Focus your mind on that sensation and try not to let your mind wander.",
+      "body-sensation-process"
     );
+    if (!completed) return;
     await resumeBlsRound("PHASE3_BLS");
   };
 
   const handleSensationFeelingContinue = async () => {
-    await speakAsync("Is there anything left in that sensation?");
+    stopSessionInstructionAudio();
+    const completed = await playNaturalVoice(
+      "Is there anything left in that sensation?",
+      "body-sensation-left"
+    );
+    if (!completed) return;
     setSessionState("PHASE3_SENSATION_LEFT");
   };
 
@@ -2476,6 +2635,7 @@ function SessionContent() {
   };
 
   const handleSensationLeft = async (hasSensationLeft) => {
+    stopSessionInstructionAudio();
     if (!hasSensationLeft) {
       await returnToBodyScanAfterSensation();
       return;
@@ -2492,9 +2652,11 @@ function SessionContent() {
     bodySensationAdditionalCycleCountRef.current = nextAdditionalCycle;
     setBodySensationAdditionalCycleCount(nextAdditionalCycle);
     setBodySensationCurrentFeeling("");
-    await speakAsync(
-      "Focus your mind on that sensation and try not to let your mind wander."
+    const completed = await playNaturalVoice(
+      "Focus your mind on that sensation and try not to let your mind wander.",
+      "body-sensation-additional-round"
     );
+    if (!completed) return;
     await resumeBlsRound("PHASE3_BLS");
   };
 
@@ -2503,21 +2665,25 @@ function SessionContent() {
   useEffect(() => {
     if (sessionState !== "PHASE2_VOC") return;
 
-    speakAsync(
-      `Now I would like you to again look back at the original image and put it together with "${activePositiveBelief}". How true does this feel in the body? 1 is not true and 7 is true.`
+    void playNaturalVoice(
+      `Now I would like you to again look back at the original image and put it together with "${activePositiveBelief}". How true does this feel in the body? 1 is not true and 7 is true.`,
+      "voc-rating"
     );
   }, [activePositiveBelief, sessionState]);
 
   useEffect(() => {
     if (sessionState !== "PHASE3_BODY_SCAN") return;
 
-    speakAsync(BODY_SCAN_GUIDANCE_SCRIPT);
+    void playNaturalVoice(BODY_SCAN_GUIDANCE_SCRIPT, "body-scan-intro");
   }, [sessionState]);
 
   useEffect(() => {
     if (sessionState !== "PHASE3_SENSATION_FEEL_NOW") return;
 
-    speakAsync("How does that sensation feel now?");
+    void playNaturalVoice(
+      "How does that sensation feel now?",
+      "body-sensation-feel-now"
+    );
   }, [sessionState]);
 
   useEffect(() => {

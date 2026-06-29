@@ -393,22 +393,28 @@ const createSummaryMarkup = ({ responses, beliefPairs }) => {
   ].filter(Boolean);
   const narrationParts = isAddictionFlow
     ? [
-        responses[1] ? `You are focusing on ${responses[1]}.` : "",
-        responses[2] ? `The positive feeling is ${responses[2]}.` : "",
+        responses[1] ? `You are gently focusing on ${responses[1]}.` : "",
+        responses[2] ? `You have described the feeling as ${responses[2]}.` : "",
         responses[4] ? `The thoughts connected with it are ${responses[4]}.` : "",
         responses[5] ? `You notice it in ${responses[5]}.` : "",
-        responses[6] ? `The image or shape that comes to mind is ${responses[6]}.` : "",
-        "Now, when you are ready and have this in mind, press start.",
+        responses[6] ? `Hold the image of ${responses[6]} lightly in mind.` : "",
+        "There is no need to force anything. When you feel ready, press start and simply notice what comes.",
       ]
     : [
         target ? `${targetPrefix} ${target}.` : "",
-        negativeBeliefs.length ? `The thoughts are ${negativeBeliefs.join(", ")}.` : "",
-        emotionParts.length ? `You are feeling ${emotionParts.join(", ")}.` : "",
-        responses[bodyLocationIndex] ? `It sits in ${responses[bodyLocationIndex]}.` : "",
-        positiveBeliefs.length
-          ? `The positive belief${positiveBeliefs.length > 1 ? "s are" : " is"} ${positiveBeliefs.join(", ")}.`
+        emotionParts.length
+          ? `You described feeling ${emotionParts.join(", ")}, and it makes sense that this experience still feels important.`
           : "",
-        "Now, when you are ready and have this in mind, press start.",
+        responses[bodyLocationIndex]
+          ? `You notice some of this in ${responses[bodyLocationIndex]}.`
+          : "",
+        negativeBeliefs.length
+          ? `The difficult thought${negativeBeliefs.length > 1 ? "s" : ""} you noticed ${negativeBeliefs.length > 1 ? "were" : "was"}: ${negativeBeliefs.join(", ")}.`
+          : "",
+        positiveBeliefs.length
+          ? `You are moving towards the belief${positiveBeliefs.length > 1 ? "s" : ""}: ${positiveBeliefs.join(", ")}.`
+          : "",
+        "You do not need to force anything. When you feel ready, press start and gently notice what comes.",
       ];
 
   return {
@@ -588,6 +594,8 @@ export default function EMDRCompanion() {
   const persistGeneratedRoadmapAudioLocally = (completedSession) => {
     const roadmapSummaryAudioUrl = completedSession?.roadmapSummaryAudioUrl;
     const roadmapSummaryText = completedSession?.roadmapSummaryText;
+    const roadmapSummaryAudioProvider =
+      completedSession?.roadmapSummaryAudioProvider || "";
 
     if (!roadmapSummaryAudioUrl && !roadmapSummaryText) return;
 
@@ -598,6 +606,7 @@ export default function EMDRCompanion() {
       ...currentSession,
       roadmapSummaryAudioUrl: roadmapSummaryAudioUrl || currentSession.roadmapSummaryAudioUrl || "",
       roadmapSummaryText: roadmapSummaryText || currentSession.roadmapSummaryText || "",
+      roadmapSummaryAudioProvider,
       summary: {
         ...(currentSession.summary || {}),
         roadmapSummaryAudioUrl:
@@ -608,6 +617,7 @@ export default function EMDRCompanion() {
           roadmapSummaryText ||
           currentSession.summary?.roadmapSummaryText ||
           "",
+        roadmapSummaryAudioProvider,
       },
     };
 
